@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">Aonime</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_browse">Browse</string>
+
+    <!-- Home Screen -->
+    <string name="section_trending">Trending Now</string>
+    <string name="section_latest">Latest Episodes</string>
+    <string name="btn_watch_now">▶ Watch Now</string>
+    <string name="featured_label">FEATURED</string>
+
+    <!-- Browse Screen -->
+    <string name="search_hint">Search anime...</string>
+    <string name="all_anime">All Anime</string>
+    <string name="filter_all">All</string>
+    <string name="filter_action">Action</string>
+    <string name="filter_fantasy">Fantasy</string>
+    <string name="filter_romance">Romance</string>
+    <string name="filter_scifi">Sci-Fi</string>
+    <string name="filter_comedy">Comedy</string>
+
+    <!-- Misc -->
+    <string name="episodes_format">%d eps</string>
+    <string name="content_desc_poster">Anime poster</string>
+    <string name="content_desc_logo">Aonime logo</string>
+</resources>

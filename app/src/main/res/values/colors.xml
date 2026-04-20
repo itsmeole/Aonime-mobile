@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background Colors -->
+    <color name="bg_primary">#0F0F1A</color>
+    <color name="bg_surface">#161625</color>
+    <color name="bg_card">#1E1E35</color>
+    <color name="bg_splash">#0A0A14</color>
+
+    <!-- Accent/Brand Colors -->
+    <color name="accent_primary">#7C3AED</color>
+    <color name="accent_secondary">#A855F7</color>
+    <color name="accent_gradient_start">#7C3AED</color>
+    <color name="accent_gradient_end">#2563EB</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#A0A0C0</color>
+    <color name="text_hint">#606080</color>
+
+    <!-- Bottom NavigationBar -->
+    <color name="nav_bar_bg">#12121F</color>
+    <color name="nav_item_active">#A855F7</color>
+    <color name="nav_item_inactive">#505070</color>
+
+    <!-- Badge Colors -->
+    <color name="badge_tv">#2563EB</color>
+    <color name="badge_movie">#D97706</color>
+    <color name="badge_ona">#10B981</color>
+    <color name="badge_ova">#EC4899</color>
+
+    <!-- Misc -->
+    <color name="divider">#1E1E35</color>
+    <color name="ripple">#33A855F7</color>
+    <color name="star_rating">#F59E0B</color>
+
+    <!-- Material Theme Colors (required) -->
+    <color name="colorPrimary">#7C3AED</color>
+    <color name="colorPrimaryVariant">#5B21B6</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorSecondary">#A855F7</color>
+    <color name="colorOnSecondary">#FFFFFF</color>
+    <color name="colorBackground">#0F0F1A</color>
+    <color name="colorSurface">#161625</color>
+    <color name="colorOnSurface">#FFFFFF</color>
+    <color name="colorError">#CF6679</color>
+    <color name="colorOnError">#000000</color>
+</resources>
