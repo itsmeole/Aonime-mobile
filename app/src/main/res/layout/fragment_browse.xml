@@ -54,7 +54,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:hint="@string/search_hint"
-            android:hintTextColor="@color/text_hint"
+            android:textColorHint="@color/text_hint"
             android:textColor="@color/text_primary"
             android:textSize="14sp"
             android:background="@null"

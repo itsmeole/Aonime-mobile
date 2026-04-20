@@ -26,7 +26,6 @@
         app:menu="@menu/bottom_nav_menu"
         app:itemIconTint="@drawable/nav_item_color"
         app:itemTextColor="@drawable/nav_item_color"
-        app:itemActiveIndicatorColor="@color/ripple"
         app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
