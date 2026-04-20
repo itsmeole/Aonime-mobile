@@ -63,7 +63,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupLatestList(view: View) {
-        latestAdapter = AnimeAdapter { anime ->
+        latestAdapter = AnimeAdapter(isGrid = true) { anime ->
             Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
         }
 

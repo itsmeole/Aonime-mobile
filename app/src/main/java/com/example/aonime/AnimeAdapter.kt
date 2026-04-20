@@ -24,12 +24,30 @@ import androidx.recyclerview.widget.RecyclerView
  * @param onItemClick Lambda called with the clicked [Anime] object.
  */
 class AnimeAdapter(
+    private val isGrid: Boolean = false,
     private val onItemClick: (Anime) -> Unit
 ) : ListAdapter<Anime, AnimeAdapter.AnimeViewHolder>(AnimeDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AnimeViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_anime_card, parent, false)
+            
+        val lp = view.layoutParams as ViewGroup.MarginLayoutParams
+        val density = parent.context.resources.displayMetrics.density
+        
+        if (isGrid) {
+            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
+            lp.height = (250 * density).toInt()
+            val m = (6 * density).toInt()
+            lp.setMargins(m, m, m, m)
+        } else {
+            lp.width = (140 * density).toInt()
+            lp.height = (220 * density).toInt()
+            val mEnd = (12 * density).toInt()
+            lp.setMargins(0, 0, mEnd, 0)
+        }
+        view.layoutParams = lp
+
         return AnimeViewHolder(view)
     }
 

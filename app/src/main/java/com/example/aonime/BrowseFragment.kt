@@ -44,7 +44,7 @@ class BrowseFragment : Fragment() {
     }
 
     private fun setupGrid(view: View) {
-        browseAdapter = AnimeAdapter { anime ->
+        browseAdapter = AnimeAdapter(isGrid = true) { anime ->
             Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
         }
 
