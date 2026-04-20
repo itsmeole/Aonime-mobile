@@ -35,16 +35,5 @@
         <item name="checkedIconVisible">false</item>
     </style>
 
-    <!-- Bottom Navigation style -->
-    <style name="Widget.Aonime.BottomNav" parent="Widget.Material3.NavigationBar">
-        <item name="android:background">@color/nav_bar_bg</item>
-        <item name="itemIconTint">@drawable/nav_item_color</item>
-        <item name="itemTextColor">@drawable/nav_item_color</item>
-        <item name="itemActiveIndicatorStyle">@style/Widget.Aonime.BottomNav.ActiveIndicator</item>
-        <item name="labelVisibilityMode">labeled</item>
-    </style>
 
-    <style name="Widget.Aonime.BottomNav.ActiveIndicator" parent="Widget.Material3.NavigationBar.ActiveIndicator">
-        <item name="android:color">@color/ripple</item>
-    </style>
 </resources>
