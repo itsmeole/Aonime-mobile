@@ -42,17 +42,24 @@ class StreamActivity : AppCompatActivity() {
             return
         }
 
-        setupToolbar(title ?: "Streaming")
+        setupToolbar()
+        updateStreamTitle(title, epNumber)
         setupWebView()
         setupEpisodeList()
         setupViewModel(token, animeSlug)
     }
 
-    private fun setupToolbar(title: String) {
+    private fun setupToolbar() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar_stream)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.title = ""
         toolbar.setNavigationOnClickListener { finish() }
+    }
+
+    private fun updateStreamTitle(title: String?, epNumber: String? = null) {
+        val displayTitle = title ?: (epNumber?.let { "Episode $it" } ?: "Streaming")
+        findViewById<TextView>(R.id.tv_stream_title).text = displayTitle
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -138,9 +145,7 @@ class StreamActivity : AppCompatActivity() {
 
     private fun setupEpisodeList() {
         episodeAdapter = EpisodeAdapter { episode ->
-            val title = episode.title ?: "Episode ${episode.number}"
-            supportActionBar?.title = title
-            findViewById<TextView>(R.id.tv_stream_title).text = title
+            updateStreamTitle(episode.title, episode.number)
             episode.token?.let { viewModel.loadStreamData(it, null) }
         }
         val rv = findViewById<RecyclerView>(R.id.rv_stream_episodes)
