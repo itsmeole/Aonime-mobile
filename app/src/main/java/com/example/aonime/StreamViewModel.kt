@@ -15,6 +15,7 @@ data class StreamUiState(
     val servers: ServerCategories? = null,
     val embedUrl: String? = null,
     val episodes: List<EpisodeApiItem> = emptyList(),
+    val episodeRanges: List<String> = emptyList(),
     val errorMessage: String? = null
 )
 
@@ -24,6 +25,10 @@ class StreamViewModel(
 
     private val _uiState = MutableLiveData(StreamUiState())
     val uiState: LiveData<StreamUiState> = _uiState
+
+    private var allEpisodes: List<EpisodeApiItem> = emptyList()
+    private var currentRangeIndex: Int = 0
+    private val pageSize = 50
 
     fun loadStreamData(token: String, animeSlug: String?) {
         // Preserve current episodes list when loading new server data
@@ -36,17 +41,25 @@ class StreamViewModel(
                 val serverResponse = withContext(Dispatchers.IO) { repository.getServers(token) }
                 
                 // Load Episodes only if needed (initial load)
-                val episodes = if (animeSlug != null && currentEpisodes.isEmpty()) {
-                    withContext(Dispatchers.IO) { repository.getEpisodes(animeSlug).episodes ?: emptyList() }
+                val episodes = if (animeSlug != null && allEpisodes.isEmpty()) {
+                    val loaded = withContext(Dispatchers.IO) { repository.getEpisodes(animeSlug).episodes ?: emptyList() }
+                    allEpisodes = loaded
+                    loaded
                 } else {
                     currentEpisodes
                 }
+
+                val ranges = calculateRanges(allEpisodes.size)
+                val displayedEpisodes = if (allEpisodes.isNotEmpty()) {
+                    allEpisodes.subList(0, minOf(pageSize, allEpisodes.size))
+                } else emptyList()
 
                 _uiState.value = _uiState.value?.copy(
                     isLoading = false,
                     watchingText = serverResponse.watching,
                     servers = serverResponse.servers,
-                    episodes = episodes
+                    episodes = displayedEpisodes,
+                    episodeRanges = ranges
                 )
                 
                 // Load first server by default
@@ -62,6 +75,31 @@ class StreamViewModel(
                 )
             }
         }
+    }
+
+    private fun calculateRanges(total: Int): List<String> {
+        if (total == 0) return emptyList()
+        val ranges = mutableListOf<String>()
+        for (i in 0 until total step pageSize) {
+            val end = if (i + pageSize > total) total else i + pageSize
+            ranges.add("${i + 1} - $end")
+        }
+        return ranges
+    }
+
+    fun setRange(index: Int) {
+        currentRangeIndex = index
+        updateDisplayedEpisodes()
+    }
+
+    private fun updateDisplayedEpisodes() {
+        val start = currentRangeIndex * pageSize
+        val displayedEpisodes = if (start >= allEpisodes.size) emptyList()
+        else {
+            val end = minOf(start + pageSize, allEpisodes.size)
+            allEpisodes.subList(start, end)
+        }
+        _uiState.value = _uiState.value?.copy(episodes = displayedEpisodes)
     }
 
     fun loadSource(linkId: String) {

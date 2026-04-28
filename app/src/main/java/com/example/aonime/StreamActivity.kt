@@ -153,6 +153,31 @@ class StreamActivity : AppCompatActivity() {
         rv.adapter = episodeAdapter
     }
 
+    private fun setupRangeDropdown(ranges: List<String>) {
+        val container = findViewById<View>(R.id.filter_episode_range)
+        val tvLabel = container.findViewById<TextView>(R.id.tv_label)
+        
+        if (ranges.isEmpty()) {
+            container.visibility = View.GONE
+            return
+        }
+        
+        container.visibility = if (ranges.size > 1) View.VISIBLE else View.GONE
+        if (tvLabel.text == "Filter") {
+            tvLabel.text = ranges.first()
+        }
+
+        container.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Select Episode Range")
+                .setItems(ranges.toTypedArray()) { _, which ->
+                    tvLabel.text = ranges[which]
+                    viewModel.setRange(which)
+                }
+                .show()
+        }
+    }
+
     private fun setupViewModel(token: String, slug: String?) {
         viewModel = ViewModelProvider(this, StreamViewModel.Factory())[StreamViewModel::class.java]
 
@@ -172,6 +197,11 @@ class StreamActivity : AppCompatActivity() {
             }
 
             episodeAdapter.submitList(state.episodes)
+
+            // Setup episode range dropdown
+            if (state.episodeRanges.isNotEmpty()) {
+                setupRangeDropdown(state.episodeRanges)
+            }
 
             state.errorMessage?.let {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
