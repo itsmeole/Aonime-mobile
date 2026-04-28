@@ -26,17 +26,21 @@ class StreamViewModel(
     val uiState: LiveData<StreamUiState> = _uiState
 
     fun loadStreamData(token: String, animeSlug: String?) {
-        _uiState.value = StreamUiState(isLoading = true)
+        // Preserve current episodes list when loading new server data
+        val currentEpisodes = _uiState.value?.episodes ?: emptyList()
+        _uiState.value = _uiState.value?.copy(isLoading = true, embedUrl = null)
         
         viewModelScope.launch {
             try {
                 // Load Servers
                 val serverResponse = withContext(Dispatchers.IO) { repository.getServers(token) }
                 
-                // Load Episodes for the list (if slug available)
-                val episodes = if (animeSlug != null) {
+                // Load Episodes only if needed (initial load)
+                val episodes = if (animeSlug != null && currentEpisodes.isEmpty()) {
                     withContext(Dispatchers.IO) { repository.getEpisodes(animeSlug).episodes ?: emptyList() }
-                } else emptyList()
+                } else {
+                    currentEpisodes
+                }
 
                 _uiState.value = _uiState.value?.copy(
                     isLoading = false,
