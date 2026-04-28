@@ -10,18 +10,10 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 
 /**
  * Adapter for displaying anime cards in a RecyclerView.
- *
- * Usage (Horizontal trending / Vertical list / Grid):
- *   adapter = AnimeAdapter { anime -> /* handle click - navigate to detail */ }
- *   recyclerView.adapter = adapter
- *   adapter.submitList(DummyData.trendingAnime)
- *
- * When API is ready: replace DummyData.xxx with actual API response list.
- *
- * @param onItemClick Lambda called with the clicked [Anime] object.
  */
 class AnimeAdapter(
     private val isGrid: Boolean = false,
@@ -60,13 +52,11 @@ class AnimeAdapter(
         private val ivPoster: ImageView    = itemView.findViewById(R.id.iv_poster)
         private val tvTitle: TextView      = itemView.findViewById(R.id.tv_anime_title)
         private val tvBadge: TextView      = itemView.findViewById(R.id.tv_type_badge)
-        private val tvRating: TextView     = itemView.findViewById(R.id.tv_rating)
         private val tvEpisodes: TextView   = itemView.findViewById(R.id.tv_episodes)
 
         fun bind(anime: Anime) {
             tvTitle.text   = anime.title
             tvBadge.text   = anime.type
-            tvRating.text  = anime.rating
             tvEpisodes.text = if (anime.episodes > 0)
                 itemView.context.getString(R.string.episodes_format, anime.episodes)
             else "? eps"
@@ -83,20 +73,16 @@ class AnimeAdapter(
                 ContextCompat.getColor(itemView.context, badgeColor)
             )
 
-            // Poster: posterUrl is empty until API integrated.
-            // When API is ready, use Glide / Picasso / Coil here:
-            //   Glide.with(itemView).load(anime.posterUrl).into(ivPoster)
-            // For now, placeholder background is handled by XML drawable.
-            if (anime.posterUrl.isBlank()) {
-                ivPoster.setImageDrawable(null)
-                ivPoster.setBackgroundResource(R.drawable.bg_poster_placeholder)
+            ivPoster.load(anime.posterUrl) {
+                crossfade(true)
+                placeholder(R.drawable.bg_poster_placeholder)
+                error(R.drawable.bg_poster_placeholder)
             }
 
             itemView.setOnClickListener { onItemClick(anime) }
         }
     }
 
-    /** DiffUtil for efficient list updates when API data arrives */
     class AnimeDiffCallback : DiffUtil.ItemCallback<Anime>() {
         override fun areItemsTheSame(oldItem: Anime, newItem: Anime) = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: Anime, newItem: Anime) = oldItem == newItem

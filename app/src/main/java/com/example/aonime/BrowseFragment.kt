@@ -1,31 +1,31 @@
 package com.example.aonime
 
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.appcompat.widget.SearchView
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-/**
- * Browse screen fragment.
- * Displays:
- *  - Search bar (filters the dummy list)
- *  - Genre filter chips (UI only - no logic wired yet)
- *  - 2-column grid of all anime
- *
- * Backend team: Replace DummyData.allAnime with Retrofit API response.
- * Connect the search EditText to your search endpoint or filter locally.
- */
 class BrowseFragment : Fragment() {
 
     private lateinit var browseAdapter: AnimeAdapter
-    private var fullList: List<Anime> = emptyList()
+    private lateinit var browseViewModel: BrowseViewModel
+    private var searchJob: Job? = null
+    private var searchQuery: String = ""
+
+    private var selectedGenres = mutableSetOf<FilterOption>()
+    private var selectedRatings = mutableSetOf<FilterOption>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,58 +37,177 @@ class BrowseFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
+        browseViewModel = ViewModelProvider(this, BrowseViewModel.Factory())[BrowseViewModel::class.java]
         setupGrid(view)
         setupSearch(view)
-        setupGenreChips(view)
+        setupAllFilters(view)
+        observeBrowseState()
+        browseViewModel.loadBrowse()
     }
 
     private fun setupGrid(view: View) {
         browseAdapter = AnimeAdapter(isGrid = true) { anime ->
             Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
         }
-
-        val rvGrid = view.findViewById<RecyclerView>(R.id.rv_browse_grid)
-        rvGrid.layoutManager = GridLayoutManager(requireContext(), 2)
-        rvGrid.adapter = browseAdapter
-
-        // Load full list – replace with API call when ready
-        fullList = DummyData.allAnime
-        browseAdapter.submitList(fullList)
+        view.findViewById<RecyclerView>(R.id.rv_browse_grid).adapter = browseAdapter
     }
 
     private fun setupSearch(view: View) {
-        val etSearch = view.findViewById<EditText>(R.id.et_search)
-        etSearch.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val query = s?.toString()?.trim()?.lowercase() ?: ""
-                val filtered = if (query.isEmpty()) {
-                    fullList
-                } else {
-                    fullList.filter { it.title.lowercase().contains(query) }
-                }
-                browseAdapter.submitList(filtered)
+        val searchView = view.findViewById<SearchView>(R.id.search_view)
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                searchQuery = query?.trim().orEmpty()
+                browseViewModel.setQuery(searchQuery)
+                browseViewModel.loadBrowse()
+                searchView.clearFocus()
+                return true
+            }
+            override fun onQueryTextChange(newText: String?): Boolean {
+                searchQuery = newText?.trim().orEmpty()
+                scheduleBrowseLoad()
+                return true
             }
         })
     }
 
-    private fun setupGenreChips(view: View) {
-        // Genre chips are UI-only placeholders for now.
-        // Backend team: connect these to genre-filtered API endpoint.
-        val chipIds = listOf(
-            R.id.chip_all    to "All",
-            R.id.chip_action to "Action",
-            R.id.chip_fantasy to "Fantasy",
-            R.id.chip_romance to "Romance",
-            R.id.chip_scifi  to "Sci-Fi",
-            R.id.chip_comedy to "Comedy",
-        )
-        chipIds.forEach { (id, genre) ->
-            view.findViewById<com.google.android.material.chip.Chip>(id)?.setOnClickListener {
-                Toast.makeText(requireContext(), "Filter: $genre (API coming soon)", Toast.LENGTH_SHORT).show()
+    private fun setupAllFilters(view: View) {
+        // Multi-select Filters
+        setupMultiSelectFilter(view.findViewById(R.id.filter_genre), "Genre", FilterData.genres, selectedGenres) { 
+            browseViewModel.setGenre(it.map { opt -> opt.value }.takeIf { list -> list.isNotEmpty() })
+        }
+        setupMultiSelectFilter(view.findViewById(R.id.filter_rating), "Rating", FilterData.ratings, selectedRatings) {
+            browseViewModel.setRating(it.map { opt -> opt.value }.takeIf { list -> list.isNotEmpty() })
+        }
+
+        // Single-select Filters (converted to Dialog to fix double text)
+        setupSingleSelectFilter(view.findViewById(R.id.filter_type), "Type", FilterData.types) { browseViewModel.setType(it) }
+        setupSingleSelectFilter(view.findViewById(R.id.filter_status), "Status", FilterData.statuses) { browseViewModel.setStatus(it) }
+        setupSingleSelectFilter(view.findViewById(R.id.filter_sort), "Sort", FilterData.sorts) { 
+            browseViewModel.setSort(it?.firstOrNull() ?: "trending") 
+        }
+        setupSingleSelectFilter(view.findViewById(R.id.filter_season), "Season", FilterData.seasons) { browseViewModel.setSeason(it) }
+        setupSingleSelectFilter(view.findViewById(R.id.filter_year), "Year", FilterData.years) { browseViewModel.setYear(it) }
+        setupSingleSelectFilter(view.findViewById(R.id.filter_country), "Country", FilterData.countries) { browseViewModel.setCountry(it) }
+        setupSingleSelectFilter(view.findViewById(R.id.filter_language), "Lang", FilterData.languages) { browseViewModel.setLanguage(it) }
+    }
+
+    private fun setupMultiSelectFilter(
+        container: View,
+        defaultLabel: String,
+        options: List<FilterOption>,
+        selectedSet: MutableSet<FilterOption>,
+        onChanged: (Set<FilterOption>) -> Unit
+    ) {
+        val tvLabel = container.findViewById<TextView>(R.id.tv_label)
+        tvLabel.text = defaultLabel
+        
+        container.setOnClickListener {
+            val items = options.map { it.label }.toTypedArray()
+            val checkedItems = options.map { selectedSet.contains(it) }.toBooleanArray()
+
+            AlertDialog.Builder(requireContext())
+                .setTitle("Select $defaultLabel")
+                .setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
+                    if (isChecked) selectedSet.add(options[which]) else selectedSet.remove(options[which])
+                }
+                .setPositiveButton("Apply") { _, _ ->
+                    tvLabel.text = when {
+                        selectedSet.isEmpty() -> defaultLabel
+                        selectedSet.size == 1 -> selectedSet.first().label
+                        else -> "${selectedSet.size} Selected"
+                    }
+                    onChanged(selectedSet)
+                    browseViewModel.loadBrowse()
+                }
+                .setNegativeButton("Clear") { _, _ ->
+                    selectedSet.clear()
+                    tvLabel.text = defaultLabel
+                    onChanged(selectedSet)
+                    browseViewModel.loadBrowse()
+                }
+                .show()
+        }
+    }
+
+    private fun setupSingleSelectFilter(
+        container: View,
+        defaultLabel: String,
+        options: List<FilterOption>,
+        onSelected: (List<String>?) -> Unit
+    ) {
+        val tvLabel = container.findViewById<TextView>(R.id.tv_label)
+        tvLabel.text = defaultLabel
+
+        container.setOnClickListener {
+            val displayOptions = listOf(FilterOption("All $defaultLabel", "")) + options
+            val items = displayOptions.map { it.label }.toTypedArray()
+
+            AlertDialog.Builder(requireContext())
+                .setTitle("Select $defaultLabel")
+                .setItems(items) { _, which ->
+                    val selected = displayOptions[which]
+                    tvLabel.text = if (selected.value.isEmpty()) defaultLabel else selected.label
+                    onSelected(if (selected.value.isEmpty()) null else listOf(selected.value))
+                    browseViewModel.loadBrowse()
+                }
+                .show()
+        }
+    }
+
+    private fun scheduleBrowseLoad() {
+        searchJob?.cancel()
+        searchJob = viewLifecycleOwner.lifecycleScope.launch {
+            delay(500)
+            browseViewModel.setQuery(searchQuery)
+            browseViewModel.loadBrowse()
+        }
+    }
+
+    private fun observeBrowseState() {
+        browseViewModel.uiState.observe(viewLifecycleOwner) { state ->
+            browseAdapter.submitList(state.items)
+            if (!state.isLoading && state.errorMessage != null && state.items.isEmpty()) {
+                Toast.makeText(requireContext(), state.errorMessage, Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private data class FilterOption(val label: String, val value: String)
+
+    private object FilterData {
+        val types = listOf(
+            FilterOption("Movie", "movie"), FilterOption("TV", "tv"),
+            FilterOption("OVA", "ova"), FilterOption("ONA", "ona"),
+            FilterOption("Special", "special"), FilterOption("Music", "music")
+        )
+        val genres = listOf(
+            FilterOption("Action", "47"), FilterOption("Adventure", "1"),
+            FilterOption("Comedy", "7"), FilterOption("Drama", "66"),
+            FilterOption("Fantasy", "34"), FilterOption("Isekai", "77"),
+            FilterOption("Romance", "145"), FilterOption("Shounen", "37"),
+            FilterOption("Horror", "421"), FilterOption("Sci-Fi", "36"),
+            FilterOption("Slice of Life", "125"), FilterOption("Ecchi", "8")
+        )
+        val statuses = listOf(
+            FilterOption("Aired", "info"), FilterOption("Releasing", "releasing"), FilterOption("Completed", "completed")
+        )
+        val sorts = listOf(
+            FilterOption("Trending", "trending"), FilterOption("Latest", "updated_date"),
+            FilterOption("Release", "release_date"), FilterOption("Score", "mal_score")
+        )
+        val seasons = listOf(
+            FilterOption("Fall", "fall"), FilterOption("Summer", "summer"),
+            FilterOption("Spring", "spring"), FilterOption("Winter", "winter")
+        )
+        val years = (2026 downTo 2000).map { FilterOption(it.toString(), it.toString()) } + FilterOption("1990s", "1990s")
+        val ratings = listOf(
+            FilterOption("G", "g"), FilterOption("PG", "pg"), FilterOption("PG-13", "pg_13"),
+            FilterOption("R", "r"), FilterOption("R+", "r+"), FilterOption("Rx", "rx")
+        )
+        val countries = listOf(FilterOption("China", "2"), FilterOption("Japan", "11"))
+        val languages = listOf(
+            FilterOption("Sub", "sub"), FilterOption("Softsub", "softsub"),
+            FilterOption("Dub", "dub"), FilterOption("Sub & Dub", "subdub")
+        )
     }
 }

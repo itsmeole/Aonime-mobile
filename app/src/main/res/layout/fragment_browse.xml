@@ -28,7 +28,7 @@
 
     </LinearLayout>
 
-    <!-- Search bar -->
+    <!-- Search bar container -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
@@ -38,94 +38,79 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="12dp"
-        android:paddingStart="14dp"
+        android:paddingStart="4dp"
         android:paddingEnd="14dp">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@drawable/ic_search"
-            android:contentDescription="Search"
-            android:layout_marginEnd="10dp" />
-
-        <EditText
-            android:id="@+id/et_search"
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/search_view"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:hint="@string/search_hint"
-            android:textColorHint="@color/text_hint"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:background="@null"
-            android:singleLine="true"
-            android:imeOptions="actionSearch"
-            android:inputType="text" />
+            android:queryHint="@string/search_hint"
+            app:iconifiedByDefault="false"
+            app:searchIcon="@drawable/ic_search"
+            android:background="@null" />
 
     </LinearLayout>
 
-    <!-- Genre filter chips row -->
+    <!-- Horizontal scrollable filter dropdowns -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="42dp"
+        android:layout_height="wrap_content"
         android:scrollbars="none"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="12dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_all"
-                style="@style/Widget.Aonime.FilterChip"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/filter_all"
-                android:checked="true"
-                android:layout_marginEnd="8dp" />
+            <!-- Type Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_type" />
+            
+            <View android:layout_width="8dp" android:layout_height="1dp" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_action"
-                style="@style/Widget.Aonime.FilterChip"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/filter_action"
-                android:layout_marginEnd="8dp" />
+            <!-- Genre Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_genre" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_fantasy"
-                style="@style/Widget.Aonime.FilterChip"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/filter_fantasy"
-                android:layout_marginEnd="8dp" />
+            <View android:layout_width="8dp" android:layout_height="1dp" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_romance"
-                style="@style/Widget.Aonime.FilterChip"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/filter_romance"
-                android:layout_marginEnd="8dp" />
+            <!-- Status Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_status" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_scifi"
-                style="@style/Widget.Aonime.FilterChip"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/filter_scifi"
-                android:layout_marginEnd="8dp" />
+            <View android:layout_width="8dp" android:layout_height="1dp" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_comedy"
-                style="@style/Widget.Aonime.FilterChip"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="@string/filter_comedy" />
+            <!-- Sort Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_sort" />
+
+            <View android:layout_width="8dp" android:layout_height="1dp" />
+
+            <!-- Season Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_season" />
+
+            <View android:layout_width="8dp" android:layout_height="1dp" />
+
+            <!-- Year Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_year" />
+
+            <View android:layout_width="8dp" android:layout_height="1dp" />
+
+            <!-- Rating Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_rating" />
+
+            <View android:layout_width="8dp" android:layout_height="1dp" />
+
+            <!-- Country Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_country" />
+
+            <View android:layout_width="8dp" android:layout_height="1dp" />
+
+            <!-- Language Filter -->
+            <include layout="@layout/layout_filter_spinner" android:id="@+id/filter_language" />
 
         </LinearLayout>
     </HorizontalScrollView>
