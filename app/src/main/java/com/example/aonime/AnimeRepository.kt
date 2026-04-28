@@ -37,4 +37,12 @@ class AnimeRepository(
             language = language
         )
     }
+
+    suspend fun getAnimeDetail(slug: String): DetailResponse {
+        return apiService.getAnimeDetail(slug)
+    }
+
+    suspend fun getEpisodes(slug: String): EpisodeResponse {
+        return apiService.getEpisodes(slug)
+    }
 }

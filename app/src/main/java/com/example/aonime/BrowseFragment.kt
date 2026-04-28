@@ -1,5 +1,6 @@
 package com.example.aonime
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -47,7 +48,7 @@ class BrowseFragment : Fragment() {
 
     private fun setupGrid(view: View) {
         browseAdapter = AnimeAdapter(isGrid = true) { anime ->
-            Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
+            navigateToDetail(anime.id)
         }
         val rvGrid = view.findViewById<RecyclerView>(R.id.rv_browse_grid)
         val layoutManager = GridLayoutManager(requireContext(), 2)
@@ -69,6 +70,13 @@ class BrowseFragment : Fragment() {
                 }
             }
         })
+    }
+
+    private fun navigateToDetail(slug: String) {
+        val intent = Intent(requireContext(), DetailActivity::class.java).apply {
+            putExtra("EXTRA_SLUG", slug)
+        }
+        startActivity(intent)
     }
 
     private fun setupSearch(view: View) {

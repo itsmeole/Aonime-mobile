@@ -5,6 +5,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,9 +38,11 @@ class HomeViewModel(
             val state = withContext(Dispatchers.IO) {
                 try {
                     val home = repository.getHome()
+                    val featuredItem = parseBannerSafely(home.banner)
+
                     HomeUiState(
                         isLoading = false,
-                        featured = home.banner?.firstOrNull(),
+                        featured = featuredItem,
                         trending = home.topTrending?.now?.take(10)?.map { it.toAnime() } ?: emptyList(),
                         latest = home.latestUpdates?.take(8)?.map { it.toAnime() } ?: emptyList(),
                         errorMessage = null
@@ -49,12 +54,31 @@ class HomeViewModel(
                         featured = DummyData.trendingAnime.firstOrNull()?.toApiItem(),
                         trending = DummyData.trendingAnime,
                         latest = DummyData.latestEpisodes,
-                        errorMessage = "API Error: ${exception.localizedMessage ?: "API tidak tersedia, menggunakan data cadangan"}"
+                        errorMessage = "API Error: ${exception.localizedMessage}"
                     )
                 }
             }
-
             _uiState.value = state
+        }
+    }
+
+    private fun parseBannerSafely(json: JsonElement?): AnimeApiItem? {
+        if (json == null || json.isJsonNull) return null
+        val gson = Gson()
+        return try {
+            when {
+                json.isJsonArray -> {
+                    val type = object : TypeToken<List<AnimeApiItem>>() {}.type
+                    val list = gson.fromJson<List<AnimeApiItem>>(json, type)
+                    list.firstOrNull()
+                }
+                json.isJsonObject -> {
+                    gson.fromJson(json, AnimeApiItem::class.java)
+                }
+                else -> null // Jika String atau tipe lain, abaikan
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 

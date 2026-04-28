@@ -1,5 +1,6 @@
 package com.example.aonime
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -14,11 +15,6 @@ import coil.load
 
 /**
  * Home screen fragment.
- * Displays:
- *  - Toolbar with Aonime logo
- *  - Featured banner (hero section)
- *  - "Trending Now" horizontal scroll list
- *  - "Latest Episodes" grid section
  */
 class HomeFragment : Fragment() {
 
@@ -47,7 +43,7 @@ class HomeFragment : Fragment() {
 
     private fun setupTrendingList(view: View) {
         trendingAdapter = AnimeAdapter { anime ->
-            Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
+            navigateToDetail(anime.id)
         }
 
         val rvTrending = view.findViewById<RecyclerView>(R.id.rv_trending)
@@ -57,24 +53,31 @@ class HomeFragment : Fragment() {
             false
         )
         rvTrending.adapter = trendingAdapter
-        trendingAdapter.submitList(emptyList())
     }
 
     private fun setupLatestList(view: View) {
         latestAdapter = AnimeAdapter(isGrid = true) { anime ->
-            Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
+            navigateToDetail(anime.id)
         }
 
         val rvLatest = view.findViewById<RecyclerView>(R.id.rv_latest)
         rvLatest.layoutManager = GridLayoutManager(requireContext(), 2)
         rvLatest.adapter = latestAdapter
-        latestAdapter.submitList(emptyList())
     }
 
     private fun setupFeaturedBanner(view: View) {
         view.findViewById<android.widget.Button>(R.id.btn_watch_now).setOnClickListener {
-            Toast.makeText(requireContext(), "Memuat data anime unggulan dari API", Toast.LENGTH_SHORT).show()
+            homeViewModel.uiState.value?.featured?.id?.let { slug ->
+                navigateToDetail(slug)
+            }
         }
+    }
+
+    private fun navigateToDetail(slug: String) {
+        val intent = Intent(requireContext(), DetailActivity::class.java).apply {
+            putExtra("EXTRA_SLUG", slug)
+        }
+        startActivity(intent)
     }
 
     private fun observeHomeState(view: View) {
@@ -96,7 +99,9 @@ class HomeFragment : Fragment() {
             latestAdapter.submitList(state.latest)
 
             state.errorMessage?.let {
-                Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                if (state.trending.isEmpty()) {
+                    Toast.makeText(requireContext(), it, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

@@ -1,10 +1,12 @@
 package com.example.aonime
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
@@ -30,6 +32,12 @@ interface AnimeApiService {
         @Query("country[]") country: List<String>? = null,
         @Query("language[]") language: List<String>? = null
     ): BrowseResponse
+
+    @GET("anime/{slug}")
+    suspend fun getAnimeDetail(@Path("slug") slug: String): DetailResponse
+
+    @GET("episodes/{slug}")
+    suspend fun getEpisodes(@Path("slug") slug: String): EpisodeResponse
 }
 
 object AnimeApiClient {
@@ -61,9 +69,40 @@ data class BrowseResponse(
 
 data class HomeResponse(
     @SerializedName("success") val success: Boolean = false,
-    @SerializedName("banner") val banner: List<AnimeApiItem>? = emptyList(),
+    @SerializedName("banner") val banner: JsonElement? = null,
     @SerializedName("latest_updates") val latestUpdates: List<AnimeApiItem>? = emptyList(),
     @SerializedName("top_trending") val topTrending: TopTrendingResponse? = TopTrendingResponse()
+)
+
+data class DetailResponse(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("description") val description: String? = null,
+    @SerializedName("poster") val poster: String? = null,
+    @SerializedName("banner") val banner: String? = null,
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("rating") val rating: String? = null,
+    @SerializedName("mal_score") val malScore: String? = null,
+    @SerializedName("detail") val detailInfo: AnimeDetailInfo? = null,
+    @SerializedName("episodes") val episodes: List<EpisodeApiItem>? = emptyList()
+)
+
+data class AnimeDetailInfo(
+    @SerializedName("genres") val genres: JsonElement? = null,
+    @SerializedName("date_aired") val dateAired: String? = null
+)
+
+data class EpisodeResponse(
+    @SerializedName("success") val success: Boolean = false,
+    @SerializedName("episodes") val episodes: List<EpisodeApiItem>? = emptyList()
+)
+
+data class EpisodeApiItem(
+    @SerializedName("number") val number: String?,
+    @SerializedName("title") val title: String?,
+    @SerializedName("slug") val slug: String?,
+    @SerializedName("has_sub") val hasSub: Boolean = false,
+    @SerializedName("has_dub") val hasDub: Boolean = false
 )
 
 data class TopTrendingResponse(
@@ -83,7 +122,9 @@ data class AnimeApiItem(
     @SerializedName("type") val type: String? = "TV",
     @SerializedName("rating") val rating: String? = "",
     @SerializedName("quality") val quality: String? = "",
-    @SerializedName("description") val description: String? = ""
+    @SerializedName("description") val description: String? = "",
+    @SerializedName("genres") val genres: String? = "",
+    @SerializedName("release") val release: String? = ""
 )
 
 fun AnimeApiItem.toAnime(): Anime {
