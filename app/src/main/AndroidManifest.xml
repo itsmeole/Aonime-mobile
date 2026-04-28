@@ -38,6 +38,13 @@
             android:exported="false"
             android:screenOrientation="portrait" />
 
+        <!-- Stream Activity -->
+        <activity
+            android:name=".StreamActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|layoutDirection"
+            android:screenOrientation="sensor" />
+
     </application>
 
 </manifest>

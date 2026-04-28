@@ -5,9 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import com.google.gson.JsonElement
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,16 +76,16 @@ class DetailViewModel(
     private fun parseGenres(json: JsonElement?): String {
         if (json == null || json.isJsonNull) return ""
         return try {
-            when {
-                json.isJsonArray -> {
-                    json.asJsonArray.map { 
-                        it.asString.substringAfterLast("/").replaceFirstChar { c -> c.uppercase() } 
-                    }.joinToString(", ")
+            if (json.isJsonArray) {
+                val genres = mutableListOf<String>()
+                json.asJsonArray.forEach { 
+                    genres.add(it.asString.substringAfterLast("/").replaceFirstChar { c -> c.uppercase() })
                 }
-                json.isJsonPrimitive && json.asJsonPrimitive.isString -> {
-                    json.asString.substringAfterLast("/").replaceFirstChar { c -> c.uppercase() }
-                }
-                else -> ""
+                genres.joinToString(", ")
+            } else if (json.isJsonPrimitive && json.asJsonPrimitive.isString) {
+                json.asString.substringAfterLast("/").replaceFirstChar { c -> c.uppercase() }
+            } else {
+                ""
             }
         } catch (e: Exception) {
             ""

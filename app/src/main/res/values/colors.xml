@@ -18,7 +18,7 @@
 
     <!-- Text Colors -->
     <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#A0A0C0</color>
+    <color name="text_secondary">#FFFFFF</color>
     <color name="text_hint">#606080</color>
 
     <!-- Bottom NavigationBar -->

@@ -1,5 +1,6 @@
 package com.example.aonime
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -22,12 +23,14 @@ class DetailActivity : AppCompatActivity() {
 
     private lateinit var viewModel: DetailViewModel
     private lateinit var episodeAdapter: EpisodeAdapter
+    private var currentSlug: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail)
 
-        val slug = intent.getStringExtra("EXTRA_SLUG") ?: run {
+        currentSlug = intent.getStringExtra("EXTRA_SLUG")
+        val slug = currentSlug ?: run {
             finish()
             return
         }
@@ -47,7 +50,13 @@ class DetailActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         episodeAdapter = EpisodeAdapter { episode ->
-            Toast.makeText(this, "Playing: ${episode.title}", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, StreamActivity::class.java).apply {
+                putExtra("EXTRA_TOKEN", episode.token)
+                putExtra("EXTRA_TITLE", episode.title)
+                putExtra("EXTRA_EP_NUMBER", episode.number)
+                putExtra("EXTRA_ANIME_SLUG", currentSlug)
+            }
+            startActivity(intent)
         }
         val rvEpisodes = findViewById<RecyclerView>(R.id.rv_episodes)
         rvEpisodes.layoutManager = LinearLayoutManager(this)
@@ -94,7 +103,6 @@ class DetailActivity : AppCompatActivity() {
         }
         
         container.visibility = View.VISIBLE
-        // Set default label if not set or just show the first one
         if (tvLabel.text == "Filter" || tvLabel.text == "All") {
             tvLabel.text = ranges.first()
         }
@@ -112,9 +120,8 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private fun bindAnimeDetail(anime: AnimeApiItem) {
-        findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout).title = anime.title
+        findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout)
         
-        // Use banner (stored in quality field) if available, else poster
         val bannerUrl = if (!anime.quality.isNullOrBlank()) anime.quality else anime.poster
         findViewById<ImageView>(R.id.iv_detail_poster).load(bannerUrl) {
             crossfade(true)

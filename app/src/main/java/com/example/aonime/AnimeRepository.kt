@@ -45,4 +45,12 @@ class AnimeRepository(
     suspend fun getEpisodes(slug: String): EpisodeResponse {
         return apiService.getEpisodes(slug)
     }
+
+    suspend fun getServers(token: String): ServerResponse {
+        return apiService.getServers(token)
+    }
+
+    suspend fun getSource(linkId: String): SourceResponse {
+        return apiService.getSource(linkId)
+    }
 }

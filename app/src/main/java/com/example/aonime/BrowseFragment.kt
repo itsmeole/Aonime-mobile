@@ -5,9 +5,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.ViewModelProvider
@@ -25,8 +27,9 @@ class BrowseFragment : Fragment() {
     private var searchJob: Job? = null
     private var searchQuery: String = ""
 
-    private var selectedGenres = mutableSetOf<FilterOption>()
-    private var selectedRatings = mutableSetOf<FilterOption>()
+    private enum class FilterMode { NONE, INCLUDE, EXCLUDE }
+    private val genreStates = mutableMapOf<FilterOption, FilterMode>()
+    private val ratingStates = mutableMapOf<FilterOption, FilterMode>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -55,11 +58,10 @@ class BrowseFragment : Fragment() {
         rvGrid.layoutManager = layoutManager
         rvGrid.adapter = browseAdapter
 
-        // Add scroll listener for pagination
         rvGrid.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
-                if (dy > 0) { // Scrolling down
+                if (dy > 0) {
                     val visibleItemCount = layoutManager.childCount
                     val totalItemCount = layoutManager.itemCount
                     val pastVisibleItems = layoutManager.findFirstVisibleItemPosition()
@@ -98,11 +100,11 @@ class BrowseFragment : Fragment() {
     }
 
     private fun setupAllFilters(view: View) {
-        setupMultiSelectFilter(view.findViewById(R.id.filter_genre), "Genre", FilterData.genres, selectedGenres) { 
-            browseViewModel.setGenre(it.map { opt -> opt.value }.takeIf { list -> list.isNotEmpty() })
+        setupMultiStateFilter(view.findViewById(R.id.filter_genre), "Genre", FilterData.genres, genreStates) { 
+            browseViewModel.setGenre(it)
         }
-        setupMultiSelectFilter(view.findViewById(R.id.filter_rating), "Rating", FilterData.ratings, selectedRatings) {
-            browseViewModel.setRating(it.map { opt -> opt.value }.takeIf { list -> list.isNotEmpty() })
+        setupMultiStateFilter(view.findViewById(R.id.filter_rating), "Rating", FilterData.ratings, ratingStates) {
+            browseViewModel.setRating(it)
         }
         setupSingleSelectFilter(view.findViewById(R.id.filter_type), "Type", FilterData.types) { browseViewModel.setType(it) }
         setupSingleSelectFilter(view.findViewById(R.id.filter_status), "Status", FilterData.statuses) { browseViewModel.setStatus(it) }
@@ -115,41 +117,81 @@ class BrowseFragment : Fragment() {
         setupSingleSelectFilter(view.findViewById(R.id.filter_language), "Lang", FilterData.languages) { browseViewModel.setLanguage(it) }
     }
 
-    private fun setupMultiSelectFilter(
+    private fun setupMultiStateFilter(
         container: View,
         defaultLabel: String,
         options: List<FilterOption>,
-        selectedSet: MutableSet<FilterOption>,
-        onChanged: (Set<FilterOption>) -> Unit
+        stateMap: MutableMap<FilterOption, FilterMode>,
+        onChanged: (List<String>?) -> Unit
     ) {
         val tvLabel = container.findViewById<TextView>(R.id.tv_label)
-        tvLabel.text = defaultLabel
+        updateFilterLabel(tvLabel, defaultLabel, stateMap)
         
         container.setOnClickListener {
-            val items = options.map { it.label }.toTypedArray()
-            val checkedItems = options.map { selectedSet.contains(it) }.toBooleanArray()
+            val adapter = object : ArrayAdapter<FilterOption>(requireContext(), android.R.layout.simple_list_item_1, options) {
+                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    val view = super.getView(position, convertView, parent)
+                    val text = view.findViewById<TextView>(android.R.id.text1)
+                    val option = getItem(position)!!
+                    val mode = stateMap[option] ?: FilterMode.NONE
 
-            AlertDialog.Builder(requireContext())
-                .setTitle("Select $defaultLabel")
-                .setMultiChoiceItems(items, checkedItems) { _, which, isChecked ->
-                    if (isChecked) selectedSet.add(options[which]) else selectedSet.remove(options[which])
-                }
-                .setPositiveButton("Apply") { _, _ ->
-                    tvLabel.text = when {
-                        selectedSet.isEmpty() -> defaultLabel
-                        selectedSet.size == 1 -> selectedSet.first().label
-                        else -> "${selectedSet.size} Selected"
+                    val (prefix, colorRes) = when (mode) {
+                        FilterMode.INCLUDE -> "(+) " to R.color.badge_ona
+                        FilterMode.EXCLUDE -> "(-) " to R.color.badge_ova
+                        FilterMode.NONE -> "" to R.color.text_primary
                     }
-                    onChanged(selectedSet)
+
+                    text.text = "$prefix${option.label}"
+                    text.setTextColor(ContextCompat.getColor(context, colorRes))
+                    return view
+                }
+            }
+
+            val dialog = AlertDialog.Builder(requireContext())
+                .setTitle("Select $defaultLabel")
+                .setAdapter(adapter, null)
+                .setPositiveButton("Apply") { _, _ ->
+                    val values = stateMap.entries.filter { it.value != FilterMode.NONE }.map { (opt, mode) ->
+                        if (mode == FilterMode.EXCLUDE) "-${opt.value}" else opt.value
+                    }
+                    onChanged(values.takeIf { it.isNotEmpty() })
+                    browseViewModel.loadBrowse(isInitial = true)
+                    updateFilterLabel(tvLabel, defaultLabel, stateMap)
+                }
+                .setNeutralButton("Clear All") { _, _ ->
+                    stateMap.clear()
+                    updateFilterLabel(tvLabel, defaultLabel, stateMap)
+                    onChanged(null)
                     browseViewModel.loadBrowse(isInitial = true)
                 }
-                .setNegativeButton("Clear") { _, _ ->
-                    selectedSet.clear()
-                    tvLabel.text = defaultLabel
-                    onChanged(selectedSet)
-                    browseViewModel.loadBrowse(isInitial = true)
+                .create()
+
+            dialog.show()
+
+            dialog.listView.setOnItemClickListener { _, _, position, _ ->
+                val option = options[position]
+                val currentMode = stateMap[option] ?: FilterMode.NONE
+                stateMap[option] = when (currentMode) {
+                    FilterMode.NONE -> FilterMode.INCLUDE
+                    FilterMode.INCLUDE -> FilterMode.EXCLUDE
+                    FilterMode.EXCLUDE -> FilterMode.NONE
                 }
-                .show()
+                if (stateMap[option] == FilterMode.NONE) stateMap.remove(option)
+                adapter.notifyDataSetChanged()
+            }
+        }
+    }
+
+    private fun updateFilterLabel(tvLabel: TextView, defaultLabel: String, stateMap: Map<FilterOption, FilterMode>) {
+        val selected = stateMap.filter { it.value != FilterMode.NONE }
+        tvLabel.text = when {
+            selected.isEmpty() -> defaultLabel
+            selected.size == 1 -> {
+                val (opt, mode) = selected.entries.first()
+                val prefix = if (mode == FilterMode.EXCLUDE) "(-)" else "(+)"
+                "$prefix ${opt.label}"
+            }
+            else -> "${selected.size} Selected"
         }
     }
 
@@ -205,12 +247,27 @@ class BrowseFragment : Fragment() {
             FilterOption("Special", "special"), FilterOption("Music", "music")
         )
         val genres = listOf(
-            FilterOption("Action", "47"), FilterOption("Adventure", "1"),
-            FilterOption("Comedy", "7"), FilterOption("Drama", "66"),
-            FilterOption("Fantasy", "34"), FilterOption("Isekai", "77"),
-            FilterOption("Romance", "145"), FilterOption("Shounen", "37"),
-            FilterOption("Horror", "421"), FilterOption("Sci-Fi", "36"),
-            FilterOption("Slice of Life", "125"), FilterOption("Ecchi", "8")
+            FilterOption("Action", "47"),
+            FilterOption("Adventure", "1"), FilterOption("Avant Garde", "235"),
+            FilterOption("Comedy", "7"), FilterOption("Demons", "127"),
+            FilterOption("Drama", "66"), FilterOption("Ecchi", "8"),
+            FilterOption("Fantasy", "34"), FilterOption("Girls Love", "926"),
+            FilterOption("Gourmet", "436"), FilterOption("Harem", "196"),
+            FilterOption("Horror", "421"), FilterOption("Isekai", "77"),
+            FilterOption("Iyashikei", "225"), FilterOption("Josei", "555"),
+            FilterOption("Kids", "35"), FilterOption("Magic", "78"),
+            FilterOption("Mahou Shoujo", "857"), FilterOption("Martial Arts", "92"),
+            FilterOption("Mecha", "219"), FilterOption("Military", "134"),
+            FilterOption("Music", "27"), FilterOption("Mystery", "48"),
+            FilterOption("Parody", "356"), FilterOption("Psychological", "240"),
+            FilterOption("Reverse Harem", "798"), FilterOption("Romance", "145"),
+            FilterOption("School", "9"), FilterOption("Sci-Fi", "36"),
+            FilterOption("Seinen", "189"), FilterOption("Shoujo", "183"),
+            FilterOption("Shounen", "37"), FilterOption("Slice of Life", "125"),
+            FilterOption("Space", "220"), FilterOption("Sports", "10"),
+            FilterOption("Super Power", "350"), FilterOption("Supernatural", "49"),
+            FilterOption("Suspense", "322"), FilterOption("Thriller", "241"),
+            FilterOption("Vampire", "126")
         )
         val statuses = listOf(
             FilterOption("Aired", "info"), FilterOption("Releasing", "releasing"), FilterOption("Completed", "completed")
