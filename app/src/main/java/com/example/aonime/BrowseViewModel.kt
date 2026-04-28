@@ -11,8 +11,10 @@ import kotlinx.coroutines.withContext
 
 data class BrowseUiState(
     val isLoading: Boolean = false,
+    val isPaginationLoading: Boolean = false,
     val items: List<Anime> = emptyList(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isLastPage: Boolean = false
 )
 
 class BrowseViewModel(
@@ -22,6 +24,7 @@ class BrowseViewModel(
     private val _uiState = MutableLiveData(BrowseUiState(isLoading = true))
     val uiState: LiveData<BrowseUiState> = _uiState
 
+    private var currentPage: Int = 1
     private var currentQuery: String = ""
     private var currentSort: String = "trending"
     private var currentType: List<String>? = null
@@ -44,14 +47,20 @@ class BrowseViewModel(
     fun setCountry(country: List<String>?) { currentCountry = country }
     fun setLanguage(language: List<String>?) { currentLanguage = language }
 
-    fun loadBrowse() {
-        _uiState.value = _uiState.value?.copy(isLoading = true, errorMessage = null)
+    fun loadBrowse(isInitial: Boolean = true) {
+        if (isInitial) {
+            currentPage = 1
+            _uiState.value = _uiState.value?.copy(isLoading = true, errorMessage = null, items = emptyList(), isLastPage = false)
+        } else {
+            if (_uiState.value?.isPaginationLoading == true || _uiState.value?.isLastPage == true) return
+            _uiState.value = _uiState.value?.copy(isPaginationLoading = true)
+        }
 
         viewModelScope.launch {
             val state = withContext(Dispatchers.IO) {
                 try {
                     val results = repository.browseAnime(
-                        page = 1,
+                        page = currentPage,
                         limit = 24,
                         sort = if (currentQuery.isBlank()) currentSort else "updated_date",
                         keyword = currentQuery.ifBlank { null },
@@ -64,16 +73,25 @@ class BrowseViewModel(
                         country = currentCountry,
                         language = currentLanguage
                     )
-                    BrowseUiState(
+                    
+                    val newItems = results.data?.map { it.toAnime() } ?: emptyList()
+                    val currentItems = if (isInitial) emptyList() else _uiState.value?.items ?: emptyList()
+                    
+                    currentPage++
+                    
+                    _uiState.value?.copy(
                         isLoading = false,
-                        items = results.data?.map { it.toAnime() } ?: emptyList(),
-                        errorMessage = null
+                        isPaginationLoading = false,
+                        items = currentItems + newItems,
+                        errorMessage = null,
+                        isLastPage = newItems.isEmpty() || newItems.size < 24
                     )
                 } catch (exception: Exception) {
-                    BrowseUiState(
+                    _uiState.value?.copy(
                         isLoading = false,
-                        items = DummyData.allAnime,
-                        errorMessage = "API Error: ${exception.localizedMessage}"
+                        isPaginationLoading = false,
+                        errorMessage = "API Error: ${exception.localizedMessage}",
+                        isLastPage = true
                     )
                 }
             }

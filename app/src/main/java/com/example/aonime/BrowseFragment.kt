@@ -42,14 +42,33 @@ class BrowseFragment : Fragment() {
         setupSearch(view)
         setupAllFilters(view)
         observeBrowseState()
-        browseViewModel.loadBrowse()
+        browseViewModel.loadBrowse(isInitial = true)
     }
 
     private fun setupGrid(view: View) {
         browseAdapter = AnimeAdapter(isGrid = true) { anime ->
             Toast.makeText(requireContext(), "Selected: ${anime.title}", Toast.LENGTH_SHORT).show()
         }
-        view.findViewById<RecyclerView>(R.id.rv_browse_grid).adapter = browseAdapter
+        val rvGrid = view.findViewById<RecyclerView>(R.id.rv_browse_grid)
+        val layoutManager = GridLayoutManager(requireContext(), 2)
+        rvGrid.layoutManager = layoutManager
+        rvGrid.adapter = browseAdapter
+
+        // Add scroll listener for pagination
+        rvGrid.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                if (dy > 0) { // Scrolling down
+                    val visibleItemCount = layoutManager.childCount
+                    val totalItemCount = layoutManager.itemCount
+                    val pastVisibleItems = layoutManager.findFirstVisibleItemPosition()
+
+                    if ((visibleItemCount + pastVisibleItems) >= totalItemCount - 4) {
+                        browseViewModel.loadBrowse(isInitial = false)
+                    }
+                }
+            }
+        })
     }
 
     private fun setupSearch(view: View) {
@@ -58,7 +77,7 @@ class BrowseFragment : Fragment() {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 searchQuery = query?.trim().orEmpty()
                 browseViewModel.setQuery(searchQuery)
-                browseViewModel.loadBrowse()
+                browseViewModel.loadBrowse(isInitial = true)
                 searchView.clearFocus()
                 return true
             }
@@ -71,15 +90,12 @@ class BrowseFragment : Fragment() {
     }
 
     private fun setupAllFilters(view: View) {
-        // Multi-select Filters
         setupMultiSelectFilter(view.findViewById(R.id.filter_genre), "Genre", FilterData.genres, selectedGenres) { 
             browseViewModel.setGenre(it.map { opt -> opt.value }.takeIf { list -> list.isNotEmpty() })
         }
         setupMultiSelectFilter(view.findViewById(R.id.filter_rating), "Rating", FilterData.ratings, selectedRatings) {
             browseViewModel.setRating(it.map { opt -> opt.value }.takeIf { list -> list.isNotEmpty() })
         }
-
-        // Single-select Filters (converted to Dialog to fix double text)
         setupSingleSelectFilter(view.findViewById(R.id.filter_type), "Type", FilterData.types) { browseViewModel.setType(it) }
         setupSingleSelectFilter(view.findViewById(R.id.filter_status), "Status", FilterData.statuses) { browseViewModel.setStatus(it) }
         setupSingleSelectFilter(view.findViewById(R.id.filter_sort), "Sort", FilterData.sorts) { 
@@ -117,13 +133,13 @@ class BrowseFragment : Fragment() {
                         else -> "${selectedSet.size} Selected"
                     }
                     onChanged(selectedSet)
-                    browseViewModel.loadBrowse()
+                    browseViewModel.loadBrowse(isInitial = true)
                 }
                 .setNegativeButton("Clear") { _, _ ->
                     selectedSet.clear()
                     tvLabel.text = defaultLabel
                     onChanged(selectedSet)
-                    browseViewModel.loadBrowse()
+                    browseViewModel.loadBrowse(isInitial = true)
                 }
                 .show()
         }
@@ -148,7 +164,7 @@ class BrowseFragment : Fragment() {
                     val selected = displayOptions[which]
                     tvLabel.text = if (selected.value.isEmpty()) defaultLabel else selected.label
                     onSelected(if (selected.value.isEmpty()) null else listOf(selected.value))
-                    browseViewModel.loadBrowse()
+                    browseViewModel.loadBrowse(isInitial = true)
                 }
                 .show()
         }
@@ -159,7 +175,7 @@ class BrowseFragment : Fragment() {
         searchJob = viewLifecycleOwner.lifecycleScope.launch {
             delay(500)
             browseViewModel.setQuery(searchQuery)
-            browseViewModel.loadBrowse()
+            browseViewModel.loadBrowse(isInitial = true)
         }
     }
 
