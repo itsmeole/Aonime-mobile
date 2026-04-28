@@ -52,7 +52,6 @@ class StreamActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar_stream)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = title
         toolbar.setNavigationOnClickListener { finish() }
     }
 
