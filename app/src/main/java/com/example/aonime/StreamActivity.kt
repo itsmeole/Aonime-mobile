@@ -12,6 +12,7 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -28,9 +29,69 @@ class StreamActivity : AppCompatActivity() {
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
 
+    private val backPressedCallback: OnBackPressedCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            if (customView != null) {
+                chromeClient.onHideCustomView()
+            }
+        }
+    }
+
+    private val chromeClient: WebChromeClient = object : WebChromeClient() {
+        override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+            if (customView != null) {
+                callback?.onCustomViewHidden()
+                return
+            }
+            customView = view
+            customViewCallback = callback
+            
+            backPressedCallback.isEnabled = true
+            
+            // Force sensor landscape for fullscreen
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            
+            findViewById<FrameLayout>(R.id.fullscreen_container).apply {
+                visibility = View.VISIBLE
+                addView(view)
+            }
+            findViewById<View>(R.id.main_content).visibility = View.GONE
+            
+            // Immersive Mode
+            window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
+        }
+
+        override fun onHideCustomView() {
+            if (customView == null) return
+            
+            backPressedCallback.isEnabled = false
+            
+            // Restore to unspecified orientation
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            
+            findViewById<FrameLayout>(R.id.fullscreen_container).apply {
+                visibility = View.GONE
+                removeView(customView)
+            }
+            customView = null
+            customViewCallback?.onCustomViewHidden()
+            findViewById<View>(R.id.main_content).visibility = View.VISIBLE
+            
+            // Restore system UI
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stream)
+
+        onBackPressedDispatcher.addCallback(this, backPressedCallback)
 
         val token = intent.getStringExtra("EXTRA_TOKEN")
         val title = intent.getStringExtra("EXTRA_TITLE")
@@ -54,7 +115,13 @@ class StreamActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = ""
-        toolbar.setNavigationOnClickListener { finish() }
+        toolbar.setNavigationOnClickListener { 
+            if (customView != null) {
+                chromeClient.onHideCustomView()
+            } else {
+                finish()
+            }
+        }
     }
 
     private fun updateStreamTitle(title: String?, epNumber: String? = null) {
@@ -73,11 +140,9 @@ class StreamActivity : AppCompatActivity() {
         settings.mediaPlaybackRequiresUserGesture = false
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
-        // Improve scaling for better button visibility
         settings.displayZoomControls = false
         settings.builtInZoomControls = false
         
-        // This helps with making the video player fill the container correctly
         webView.setInitialScale(1)
         
         webView.webViewClient = object : WebViewClient() {
@@ -86,7 +151,6 @@ class StreamActivity : AppCompatActivity() {
             }
             override fun onPageFinished(view: WebView?, url: String?) {
                 progressBar.visibility = View.GONE
-                // Inject meta tag to scale the player UI correctly for mobile
                 view?.loadUrl("javascript:(function() { " +
                         "var meta = document.createElement('meta');" +
                         "meta.name = 'viewport';" +
@@ -96,51 +160,7 @@ class StreamActivity : AppCompatActivity() {
             }
         }
         
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                if (customView != null) {
-                    callback?.onCustomViewHidden()
-                    return
-                }
-                customView = view
-                customViewCallback = callback
-                
-                // Force sensor landscape for fullscreen (allows both landscape sides)
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                
-                findViewById<FrameLayout>(R.id.fullscreen_container).apply {
-                    visibility = View.VISIBLE
-                    addView(view)
-                }
-                findViewById<View>(R.id.main_content).visibility = View.GONE
-                
-                // Immersive Mode
-                window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
-            }
-
-            override fun onHideCustomView() {
-                if (customView == null) return
-                
-                // Restore to standard sensor behavior
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                
-                findViewById<FrameLayout>(R.id.fullscreen_container).apply {
-                    visibility = View.GONE
-                    removeView(customView)
-                }
-                customView = null
-                customViewCallback?.onCustomViewHidden()
-                findViewById<View>(R.id.main_content).visibility = View.VISIBLE
-                
-                // Restore system UI
-                window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
-            }
-        }
+        webView.webChromeClient = chromeClient
     }
 
     private fun setupEpisodeList() {
@@ -198,7 +218,6 @@ class StreamActivity : AppCompatActivity() {
 
             episodeAdapter.submitList(state.episodes)
 
-            // Setup episode range dropdown
             if (state.episodeRanges.isNotEmpty()) {
                 setupRangeDropdown(state.episodeRanges)
             }
@@ -232,14 +251,6 @@ class StreamActivity : AppCompatActivity() {
                     selected.linkId?.let { viewModel.loadSource(it) }
                 }
                 .show()
-        }
-    }
-
-    override fun onBackPressed() {
-        if (customView != null) {
-            webView.webChromeClient?.onHideCustomView()
-        } else {
-            super.onBackPressed()
         }
     }
 

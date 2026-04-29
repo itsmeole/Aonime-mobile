@@ -19,7 +19,7 @@
             android:name=".SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.Aonime.Splash"
-            android:screenOrientation="portrait">
+            android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -30,20 +30,20 @@
         <activity
             android:name=".MainActivity"
             android:exported="false"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="unspecified" />
 
         <!-- Detail Activity -->
         <activity
             android:name=".DetailActivity"
             android:exported="false"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="unspecified" />
 
         <!-- Stream Activity -->
         <activity
             android:name=".StreamActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|layoutDirection"
-            android:screenOrientation="sensor" />
+            android:screenOrientation="unspecified" />
 
     </application>
 
