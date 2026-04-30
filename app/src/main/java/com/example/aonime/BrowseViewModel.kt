@@ -62,7 +62,7 @@ class BrowseViewModel(
                     val results = repository.browseAnime(
                         page = currentPage,
                         limit = 24,
-                        sort = if (currentQuery.isBlank()) currentSort else "updated_date",
+                        sort = if (currentQuery.isBlank()) currentSort else "most_relevance",
                         keyword = currentQuery.ifBlank { null },
                         type = currentType,
                         genre = currentGenre,
