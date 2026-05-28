@@ -472,12 +472,22 @@ class StreamActivity : AppCompatActivity() {
         updateEdgeUI()
 
         btnEdgeOutline.setOnClickListener {
-            isEdgeOutline = !isEdgeOutline
+            if (isEdgeOutline) {
+                isEdgeOutline = false
+            } else {
+                isEdgeOutline = true
+                isEdgeShadow = false
+            }
             updateEdgeUI()
             applyCaptionStyle()
         }
         btnEdgeShadow.setOnClickListener {
-            isEdgeShadow = !isEdgeShadow
+            if (isEdgeShadow) {
+                isEdgeShadow = false
+            } else {
+                isEdgeShadow = true
+                isEdgeOutline = false
+            }
             updateEdgeUI()
             applyCaptionStyle()
         }
