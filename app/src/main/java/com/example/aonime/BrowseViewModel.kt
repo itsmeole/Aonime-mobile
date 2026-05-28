@@ -26,14 +26,13 @@ class BrowseViewModel(
 
     private var currentPage: Int = 1
     private var currentQuery: String = ""
-    private var currentSort: String = "trending"
+    private var currentSort: String = "latest-updated"
     private var currentType: List<String>? = null
     private var currentGenre: List<String>? = null
     private var currentStatus: List<String>? = null
     private var currentSeason: List<String>? = null
     private var currentYear: List<String>? = null
     private var currentRating: List<String>? = null
-    private var currentCountry: List<String>? = null
     private var currentLanguage: List<String>? = null
 
     fun setQuery(query: String) { currentQuery = query }
@@ -44,13 +43,17 @@ class BrowseViewModel(
     fun setSeason(season: List<String>?) { currentSeason = season }
     fun setYear(year: List<String>?) { currentYear = year }
     fun setRating(rating: List<String>?) { currentRating = rating }
-    fun setCountry(country: List<String>?) { currentCountry = country }
     fun setLanguage(language: List<String>?) { currentLanguage = language }
 
     fun loadBrowse(isInitial: Boolean = true) {
         if (isInitial) {
             currentPage = 1
-            _uiState.value = _uiState.value?.copy(isLoading = true, errorMessage = null, items = emptyList(), isLastPage = false)
+            _uiState.value = _uiState.value?.copy(
+                isLoading = true,
+                errorMessage = null,
+                items = emptyList(),
+                isLastPage = false
+            )
         } else {
             if (_uiState.value?.isPaginationLoading == true || _uiState.value?.isLastPage == true) return
             _uiState.value = _uiState.value?.copy(isPaginationLoading = true)
@@ -59,32 +62,43 @@ class BrowseViewModel(
         viewModelScope.launch {
             val state = withContext(Dispatchers.IO) {
                 try {
-                    val results = repository.browseAnime(
-                        page = currentPage,
-                        limit = 24,
-                        sort = if (currentQuery.isBlank()) currentSort else "most_relevance",
-                        keyword = currentQuery.ifBlank { null },
-                        type = currentType,
-                        genre = currentGenre,
-                        status = currentStatus,
-                        season = currentSeason,
-                        year = currentYear,
-                        rating = currentRating,
-                        country = currentCountry,
-                        language = currentLanguage
-                    )
-                    
-                    val newItems = results.data?.map { it.toAnime() } ?: emptyList()
+                    val results = if (currentQuery.isNotBlank()) {
+                        // Use search endpoint for keyword queries
+                        repository.searchAnime(keyword = currentQuery, page = currentPage)
+                    } else {
+                        // Use filter endpoint for advanced browsing
+                        val hasFilters = currentGenre != null || currentType != null ||
+                                currentStatus != null || currentSeason != null ||
+                                currentYear != null || currentRating != null || currentLanguage != null
+                        if (hasFilters) {
+                            repository.filterAnime(
+                                genre = currentGenre,
+                                season = currentSeason,
+                                year = currentYear,
+                                type = currentType,
+                                status = currentStatus,
+                                language = currentLanguage,
+                                rating = currentRating,
+                                sort = currentSort,
+                                page = currentPage
+                            )
+                        } else {
+                            // Default: latest listing
+                            repository.getLatest(type = "latest-updated", page = currentPage)
+                        }
+                    }
+
+                    val newItems = results.data?.results?.map { it.toAnime() } ?: emptyList()
                     val currentItems = if (isInitial) emptyList() else _uiState.value?.items ?: emptyList()
-                    
+
                     currentPage++
-                    
+
                     _uiState.value?.copy(
                         isLoading = false,
                         isPaginationLoading = false,
                         items = currentItems + newItems,
                         errorMessage = null,
-                        isLastPage = newItems.isEmpty() || newItems.size < 24
+                        isLastPage = newItems.isEmpty() || newItems.size < 20
                     )
                 } catch (exception: Exception) {
                     _uiState.value?.copy(

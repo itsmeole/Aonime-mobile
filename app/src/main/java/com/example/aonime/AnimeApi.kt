@@ -1,6 +1,5 @@
 package com.example.aonime
 
-import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -10,49 +9,72 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
-private const val BASE_URL = "https://anime-kai-api-main-test.vercel.app/api/"
+private const val BASE_URL = "https://anikoto-scrap.vercel.app/api/"
+
+/**
+ * Cloudflare Worker proxy URL for HLS streaming.
+ * Format: https://<worker-url>/?url=<encoded-m3u8>&referer=<encoded-referer>
+ */
+const val CF_WORKER_PROXY = "https://aonime-proxy.rezhashahidzindarb.workers.dev"
 
 interface AnimeApiService {
 
     @GET("home")
     suspend fun getHome(): HomeResponse
 
-    @GET("browse")
-    suspend fun browseAnime(
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20,
-        @Query("sort") sort: String = "trending",
+    @GET("search")
+    suspend fun searchAnime(
+        @Query("keyword") keyword: String,
+        @Query("page") page: Int = 1
+    ): LatestResponse
+
+    @GET("filter")
+    suspend fun filterAnime(
         @Query("keyword") keyword: String? = null,
-        @Query("type[]") type: List<String>? = null,
         @Query("genre[]") genre: List<String>? = null,
-        @Query("status[]") status: List<String>? = null,
         @Query("season[]") season: List<String>? = null,
         @Query("year[]") year: List<String>? = null,
+        @Query("term_type[]") type: List<String>? = null,
+        @Query("status[]") status: List<String>? = null,
+        @Query("language[]") language: List<String>? = null,
         @Query("rating[]") rating: List<String>? = null,
-        @Query("country[]") country: List<String>? = null,
-        @Query("language[]") language: List<String>? = null
-    ): BrowseResponse
+        @Query("sort") sort: String = "latest-updated",
+        @Query("page") page: Int = 1
+    ): LatestResponse
+
+    @GET("latest")
+    suspend fun getLatest(
+        @Query("type") type: String = "latest-updated",
+        @Query("page") page: Int = 1
+    ): LatestResponse
 
     @GET("anime/{slug}")
-    suspend fun getAnimeDetail(@Path("slug") slug: String): DetailResponse
+    suspend fun getAnimeDetail(@Path("slug") slug: String): AnimeDetailResponse
 
-    @GET("episodes/{slug}")
-    suspend fun getEpisodes(@Path("slug") slug: String): EpisodeResponse
+    @GET("anime/{slug}/episodes")
+    suspend fun getAnimeEpisodes(
+        @Path("slug") slug: String,
+        @Query("start") start: String? = null,
+        @Query("end") end: String? = null
+    ): EpisodeListResponse
 
-    @GET("servers/{ep_token}")
-    suspend fun getServers(@Path("ep_token") token: String): ServerResponse
-
-    @GET("source/{link_id}")
-    suspend fun getSource(@Path("link_id") linkId: String): SourceResponse
+    @GET("watch/{slug}")
+    suspend fun getWatchData(
+        @Path("slug") slug: String,
+        @Query("ep") ep: String
+    ): WatchResponse
 }
 
 object AnimeApiClient {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                .header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                )
                 .build()
             chain.proceed(request)
         }
@@ -68,121 +90,210 @@ object AnimeApiClient {
     }
 }
 
-data class BrowseResponse(
-    @SerializedName("success") val success: Boolean = false,
-    @SerializedName("data") val data: List<AnimeApiItem>? = emptyList()
-)
+// ── Response wrappers ──────────────────────────────────────────────────────────
 
 data class HomeResponse(
-    @SerializedName("success") val success: Boolean = false,
-    @SerializedName("banner") val banner: JsonElement? = null,
-    @SerializedName("latest_updates") val latestUpdates: List<AnimeApiItem>? = emptyList(),
-    @SerializedName("top_trending") val topTrending: TopTrendingResponse? = TopTrendingResponse()
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("data") val data: HomeData? = null
 )
 
-data class DetailResponse(
-    @SerializedName("success") val success: Boolean = false,
-    @SerializedName("title") val title: String? = null,
-    @SerializedName("description") val description: String? = null,
-    @SerializedName("poster") val poster: String? = null,
-    @SerializedName("banner") val banner: String? = null,
-    @SerializedName("type") val type: String? = null,
-    @SerializedName("rating") val rating: String? = null,
-    @SerializedName("mal_score") val malScore: String? = null,
-    @SerializedName("detail") val detailInfo: AnimeDetailInfo? = null,
+data class HomeData(
+    @SerializedName("spotlight") val spotlight: List<SpotlightItem>? = emptyList(),
+    @SerializedName("latestEpisodes") val latestEpisodes: List<AnimeApiItem>? = emptyList(),
+    @SerializedName("newRelease") val newRelease: List<AnimeApiItem>? = emptyList(),
+    @SerializedName("topDay") val topDay: List<AnimeApiItem>? = emptyList(),
+    @SerializedName("topWeek") val topWeek: List<AnimeApiItem>? = emptyList(),
+    @SerializedName("topMonth") val topMonth: List<AnimeApiItem>? = emptyList()
+)
+
+data class LatestResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("data") val data: LatestData? = null
+)
+
+data class LatestData(
+    @SerializedName("results") val results: List<AnimeApiItem>? = emptyList(),
+    @SerializedName("currentPage") val currentPage: Int = 1,
+    @SerializedName("hasNextPage") val hasNextPage: Boolean = false,
+    @SerializedName("keyword") val keyword: String? = null
+)
+
+data class AnimeDetailResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("data") val data: AnimeDetailData? = null
+)
+
+data class EpisodeListResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("data") val data: EpisodeListData? = null
+)
+
+data class WatchResponse(
+    @SerializedName("ok") val ok: Boolean = false,
+    @SerializedName("data") val data: WatchData? = null
+)
+
+// ── Data models ────────────────────────────────────────────────────────────────
+
+data class SpotlightItem(
+    @SerializedName("slug") val slug: String?,
+    @SerializedName("title") val title: String?,
+    @SerializedName("rating") val rating: String?,
+    @SerializedName("quality") val quality: String?,
+    @SerializedName("hasDub") val hasDub: Boolean = false,
+    @SerializedName("hasSub") val hasSub: Boolean = false,
+    @SerializedName("date") val date: String?,
+    @SerializedName("synopsis") val synopsis: String?,
+    @SerializedName("image") val image: String?
+)
+
+data class AnimeApiItem(
+    @SerializedName("id") val id: String?,
+    @SerializedName("slug") val slug: String?,
+    @SerializedName("title") val title: String?,
+    @SerializedName("image") val image: String?,
+    @SerializedName("type") val type: String?,
+    @SerializedName("episodes") val episodes: EpisodeCount? = null,
+    @SerializedName("date") val date: String?,
+    @SerializedName("rank") val rank: Int? = null
+)
+
+data class EpisodeCount(
+    @SerializedName("sub") val sub: Int? = null,
+    @SerializedName("dub") val dub: Int? = null,
+    @SerializedName("total") val total: Int? = null
+)
+
+data class AnimeDetailData(
+    @SerializedName("id") val id: String?,
+    @SerializedName("slug") val slug: String?,
+    @SerializedName("title") val title: String?,
+    @SerializedName("titleJp") val titleJp: String?,
+    @SerializedName("image") val image: String?,
+    @SerializedName("rating") val rating: String?,
+    @SerializedName("quality") val quality: String?,
+    @SerializedName("hasDub") val hasDub: Boolean = false,
+    @SerializedName("hasSub") val hasSub: Boolean = false,
+    @SerializedName("synopsis") val synopsis: String?,
+    @SerializedName("type") val type: String?,
+    @SerializedName("premiered") val premiered: String?,
+    @SerializedName("aired") val aired: String?,
+    @SerializedName("status") val status: String?,
+    @SerializedName("genres") val genres: List<String>? = emptyList(),
+    @SerializedName("malScore") val malScore: Double? = null,
+    @SerializedName("duration") val duration: String?,
+    @SerializedName("episodeCount") val episodeCount: Int? = null,
+    @SerializedName("studios") val studios: List<String>? = emptyList(),
+    @SerializedName("episodes") val episodesData: EpisodesWrapper? = null
+)
+
+data class EpisodesWrapper(
+    @SerializedName("animeId") val animeId: String?,
+    @SerializedName("slug") val slug: String?,
     @SerializedName("episodes") val episodes: List<EpisodeApiItem>? = emptyList()
 )
 
-data class AnimeDetailInfo(
-    @SerializedName("genres") val genres: JsonElement? = null,
-    @SerializedName("date_aired") val dateAired: String? = null
-)
-
-data class EpisodeResponse(
-    @SerializedName("success") val success: Boolean = false,
+data class EpisodeListData(
+    @SerializedName("animeId") val animeId: String?,
+    @SerializedName("slug") val slug: String?,
     @SerializedName("episodes") val episodes: List<EpisodeApiItem>? = emptyList()
 )
 
 data class EpisodeApiItem(
     @SerializedName("number") val number: String?,
-    @SerializedName("title") val title: String?,
-    @SerializedName("slug") val slug: String?,
-    @SerializedName("token") val token: String? = null,
-    @SerializedName("has_sub") val hasSub: Boolean = false,
-    @SerializedName("has_dub") val hasDub: Boolean = false
+    @SerializedName("href") val href: String?,
+    @SerializedName("dataIds") val dataIds: String?,
+    @SerializedName("hasDub") val hasDub: Boolean = false,
+    @SerializedName("hasSub") val hasSub: Boolean = true
 )
 
-data class ServerResponse(
-    @SerializedName("success") val success: Boolean = false,
-    @SerializedName("watching") val watching: String? = null,
-    @SerializedName("servers") val servers: ServerCategories? = null
-)
-
-data class ServerCategories(
-    @SerializedName("sub") val sub: List<ServerItem>? = emptyList(),
-    @SerializedName("softsub") val softsub: List<ServerItem>? = emptyList(),
-    @SerializedName("dub") val dub: List<ServerItem>? = emptyList()
+data class WatchData(
+    @SerializedName("episode") val episode: EpisodeApiItem? = null,
+    @SerializedName("servers") val servers: List<ServerItem>? = emptyList(),
+    @SerializedName("sources") val sources: List<SourceItem>? = emptyList()
 )
 
 data class ServerItem(
-    @SerializedName("name") val name: String?,
-    @SerializedName("server_id") val serverId: String?,
-    @SerializedName("link_id") val linkId: String?
-)
-
-data class SourceResponse(
-    @SerializedName("success") val success: Boolean = false,
-    @SerializedName("embed_url") val embedUrl: String? = null
-)
-
-data class TopTrendingResponse(
-    @SerializedName("NOW") val now: List<AnimeApiItem>? = emptyList(),
-    @SerializedName("DAY") val day: List<AnimeApiItem>? = emptyList(),
-    @SerializedName("WEEK") val week: List<AnimeApiItem>? = emptyList(),
-    @SerializedName("MONTH") val month: List<AnimeApiItem>? = emptyList()
-)
-
-data class AnimeApiItem(
     @SerializedName("id") val id: String?,
-    @SerializedName("title") val title: String?,
-    @SerializedName("poster") val poster: String? = "",
-    @SerializedName("current_episode") val currentEpisode: String? = "",
-    @SerializedName("sub_episodes") val subEpisodes: String? = "",
-    @SerializedName("dub_episodes") val dubEpisodes: String? = "",
-    @SerializedName("type") val type: String? = "TV",
-    @SerializedName("rating") val rating: String? = "",
-    @SerializedName("quality") val quality: String? = "",
-    @SerializedName("description") val description: String? = "",
-    @SerializedName("genres") val genres: String? = "",
-    @SerializedName("release") val release: String? = ""
+    @SerializedName("name") val name: String?,
+    @SerializedName("type") val type: String?   // "sub" | "dub"
 )
+
+data class SourceItem(
+    @SerializedName("server") val server: String?,
+    @SerializedName("type") val type: String?,   // "sub" | "dub"
+    @SerializedName("url") val url: String?,
+    @SerializedName("m3u8") val m3u8: String?,
+    @SerializedName("referer") val referer: String?,
+    @SerializedName("proxyUrl") val proxyUrl: String?,
+    @SerializedName("tracks") val tracks: List<SubtitleTrack>? = emptyList()
+)
+
+data class SubtitleTrack(
+    @SerializedName("file") val file: String?,
+    @SerializedName("label") val label: String?,
+    @SerializedName("kind") val kind: String?,
+    @SerializedName("default") val isDefault: Boolean = false,
+    @SerializedName("proxyUrl") val proxyUrl: String?
+)
+
+// ── Adapter helpers ────────────────────────────────────────────────────────────
 
 fun AnimeApiItem.toAnime(): Anime {
+    val epCount = episodes?.sub ?: episodes?.total ?: episodes?.dub ?: 0
     return Anime(
-        id = id ?: "",
+        id = slug ?: id ?: "",
         title = title ?: "Untitled",
         type = (type ?: "TV").ifBlank { "TV" },
-        episodes = episodeCount(),
-        rating = (rating ?: quality ?: "—").ifBlank { "—" },
-        posterUrl = poster ?: ""
+        episodes = epCount,
+        rating = "",
+        posterUrl = image ?: ""
     )
 }
 
-fun Anime.toApiItem(): AnimeApiItem {
+fun SpotlightItem.toAnimeApiItemCompat(): AnimeApiItem {
     return AnimeApiItem(
-        id = id,
+        id = slug,
+        slug = slug,
         title = title,
-        poster = posterUrl,
-        currentEpisode = episodes.toString(),
-        type = type,
-        rating = rating,
-        description = "Tonton $title secara gratis di Aonime."
+        image = image,
+        type = null,
+        episodes = null,
+        date = date
     )
 }
 
-private fun AnimeApiItem.episodeCount(): Int {
-    currentEpisode?.toIntOrNull()?.let { return it }
-    subEpisodes?.toIntOrNull()?.let { return it }
-    dubEpisodes?.toIntOrNull()?.let { return it }
-    return 0
+fun SpotlightItem.toAnime(): Anime {
+    return Anime(
+        id = slug ?: "",
+        title = title ?: "Untitled",
+        type = "TV",
+        episodes = 0,
+        rating = rating ?: "",
+        posterUrl = image ?: ""
+    )
+}
+
+/**
+ * Build a proxied m3u8 URL.
+ *
+ * Priority:
+ * 1. If the API already returned a proxyUrl (relative path from anikoto-scrap.vercel.app),
+ *    use the full absolute URL via the API proxy.
+ * 2. Otherwise route through the Cloudflare Worker proxy.
+ */
+fun buildProxiedM3u8(
+    m3u8Url: String?,
+    referer: String?,
+    apiProxyUrl: String? = null // Ignored now, using CF worker
+): String? {
+    if (m3u8Url == null) return null
+
+    // Force using Cloudflare Worker proxy instead of Vercel API proxy
+    val encoded = java.net.URLEncoder.encode(m3u8Url, "UTF-8")
+    var proxy = "$CF_WORKER_PROXY/?url=$encoded"
+    if (!referer.isNullOrBlank()) {
+        proxy += "&referer=${java.net.URLEncoder.encode(referer, "UTF-8")}"
+    }
+    return proxy
 }

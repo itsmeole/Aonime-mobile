@@ -30,8 +30,8 @@ class EpisodeAdapter(
 
         fun bind(episode: EpisodeApiItem) {
             tvNumber.text = episode.number ?: "?"
-            tvTitle.text = episode.title ?: "Episode ${episode.number}"
-            
+            tvTitle.text = "Episode ${episode.number}"
+
             tvSub.visibility = if (episode.hasSub) View.VISIBLE else View.GONE
             tvDub.visibility = if (episode.hasDub) View.VISIBLE else View.GONE
 
@@ -40,7 +40,9 @@ class EpisodeAdapter(
     }
 
     class EpisodeDiffCallback : DiffUtil.ItemCallback<EpisodeApiItem>() {
-        override fun areItemsTheSame(oldItem: EpisodeApiItem, newItem: EpisodeApiItem) = oldItem.slug == newItem.slug
-        override fun areContentsTheSame(oldItem: EpisodeApiItem, newItem: EpisodeApiItem) = oldItem == newItem
+        override fun areItemsTheSame(oldItem: EpisodeApiItem, newItem: EpisodeApiItem) =
+            oldItem.number == newItem.number
+        override fun areContentsTheSame(oldItem: EpisodeApiItem, newItem: EpisodeApiItem) =
+            oldItem == newItem
     }
 }

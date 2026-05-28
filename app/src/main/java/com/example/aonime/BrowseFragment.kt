@@ -31,6 +31,7 @@ class BrowseFragment : Fragment() {
     private val genreStates = mutableMapOf<FilterOption, FilterMode>()
     private val ratingStates = mutableMapOf<FilterOption, FilterMode>()
 
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -108,12 +109,11 @@ class BrowseFragment : Fragment() {
         }
         setupSingleSelectFilter(view.findViewById(R.id.filter_type), "Type", FilterData.types) { browseViewModel.setType(it) }
         setupSingleSelectFilter(view.findViewById(R.id.filter_status), "Status", FilterData.statuses) { browseViewModel.setStatus(it) }
-        setupSingleSelectFilter(view.findViewById(R.id.filter_sort), "Sort", FilterData.sorts) { 
-            browseViewModel.setSort(it?.firstOrNull() ?: "trending") 
+        setupSingleSelectFilter(view.findViewById(R.id.filter_sort), "Sort", FilterData.sorts) {
+            browseViewModel.setSort(it?.firstOrNull() ?: "latest-updated")
         }
         setupSingleSelectFilter(view.findViewById(R.id.filter_season), "Season", FilterData.seasons) { browseViewModel.setSeason(it) }
         setupSingleSelectFilter(view.findViewById(R.id.filter_year), "Year", FilterData.years) { browseViewModel.setYear(it) }
-        setupSingleSelectFilter(view.findViewById(R.id.filter_country), "Country", FilterData.countries) { browseViewModel.setCountry(it) }
         setupSingleSelectFilter(view.findViewById(R.id.filter_language), "Lang", FilterData.languages) { browseViewModel.setLanguage(it) }
     }
 
@@ -241,54 +241,83 @@ class BrowseFragment : Fragment() {
     private data class FilterOption(val label: String, val value: String)
 
     private object FilterData {
+        // term_type[] values: Movie | Music | ONA | OVA | Special | TV
         val types = listOf(
-            FilterOption("Movie", "movie"), FilterOption("TV", "tv"),
-            FilterOption("OVA", "ova"), FilterOption("ONA", "ona"),
-            FilterOption("Special", "special"), FilterOption("Music", "music")
+            FilterOption("Movie", "Movie"), FilterOption("TV", "TV"),
+            FilterOption("OVA", "OVA"), FilterOption("ONA", "ONA"),
+            FilterOption("Special", "Special"), FilterOption("Music", "Music")
         )
+        // genre[] values: numeric IDs
         val genres = listOf(
-            FilterOption("Action", "47"),
-            FilterOption("Adventure", "1"), FilterOption("Avant Garde", "235"),
-            FilterOption("Comedy", "7"), FilterOption("Demons", "127"),
-            FilterOption("Drama", "66"), FilterOption("Ecchi", "8"),
-            FilterOption("Fantasy", "34"), FilterOption("Girls Love", "926"),
-            FilterOption("Gourmet", "436"), FilterOption("Harem", "196"),
-            FilterOption("Horror", "421"), FilterOption("Isekai", "77"),
-            FilterOption("Iyashikei", "225"), FilterOption("Josei", "555"),
-            FilterOption("Kids", "35"), FilterOption("Magic", "78"),
-            FilterOption("Mahou Shoujo", "857"), FilterOption("Martial Arts", "92"),
-            FilterOption("Mecha", "219"), FilterOption("Military", "134"),
-            FilterOption("Music", "27"), FilterOption("Mystery", "48"),
-            FilterOption("Parody", "356"), FilterOption("Psychological", "240"),
-            FilterOption("Reverse Harem", "798"), FilterOption("Romance", "145"),
-            FilterOption("School", "9"), FilterOption("Sci-Fi", "36"),
-            FilterOption("Seinen", "189"), FilterOption("Shoujo", "183"),
-            FilterOption("Shounen", "37"), FilterOption("Slice of Life", "125"),
-            FilterOption("Space", "220"), FilterOption("Sports", "10"),
-            FilterOption("Super Power", "350"), FilterOption("Supernatural", "49"),
-            FilterOption("Suspense", "322"), FilterOption("Thriller", "241"),
-            FilterOption("Vampire", "126")
+            FilterOption("Action", "1"),
+            FilterOption("Adventure", "2"),
+            FilterOption("Cars", "538"),
+            FilterOption("Comedy", "8"),
+            FilterOption("Dementia", "453"),
+            FilterOption("Demons", "119"),
+            FilterOption("Drama", "62"),
+            FilterOption("Ecchi", "214"),
+            FilterOption("Fantasy", "3"),
+            FilterOption("Game", "180"),
+            FilterOption("Harem", "215"),
+            FilterOption("Historical", "70"),
+            FilterOption("Horror", "222"),
+            FilterOption("Isekai", "74"),
+            FilterOption("Josei", "404"),
+            FilterOption("Kids", "46"),
+            FilterOption("Magic", "203"),
+            FilterOption("Martial Arts", "114"),
+            FilterOption("Mecha", "123"),
+            FilterOption("Military", "125"),
+            FilterOption("Music", "242"),
+            FilterOption("Mystery", "57"),
+            FilterOption("Parody", "162"),
+            FilterOption("Police", "136"),
+            FilterOption("Psychological", "73"),
+            FilterOption("Romance", "28"),
+            FilterOption("Samurai", "163"),
+            FilterOption("School", "14"),
+            FilterOption("Sci-Fi", "12"),
+            FilterOption("Seinen", "50"),
+            FilterOption("Shoujo", "252"),
+            FilterOption("Shoujo Ai", "235"),
+            FilterOption("Shounen", "15"),
+            FilterOption("Shounen Ai", "233"),
+            FilterOption("Slice of Life", "35"),
+            FilterOption("Space", "124"),
+            FilterOption("Sports", "29"),
+            FilterOption("Super Power", "16"),
+            FilterOption("Supernatural", "9"),
+            FilterOption("Thriller", "54"),
+            FilterOption("Vampire", "58")
         )
+        // status[] values: currently-airing | finished-airing | not-yet-aired
         val statuses = listOf(
-            FilterOption("Aired", "info"), FilterOption("Releasing", "releasing"), FilterOption("Completed", "completed")
+            FilterOption("Currently Airing", "currently-airing"),
+            FilterOption("Finished Airing", "finished-airing"),
+            FilterOption("Not Yet Aired", "not-yet-aired")
         )
+        // sort values for /api/filter
         val sorts = listOf(
-            FilterOption("Trending", "trending"), FilterOption("Latest", "updated_date"),
-            FilterOption("Release", "release_date"), FilterOption("Score", "mal_score")
+            FilterOption("Latest Updated", "latest-updated"),
+            FilterOption("Score", "score"),
+            FilterOption("Name A-Z", "name-az"),
+            FilterOption("Release Date", "release-date")
         )
         val seasons = listOf(
             FilterOption("Fall", "fall"), FilterOption("Summer", "summer"),
             FilterOption("Spring", "spring"), FilterOption("Winter", "winter")
         )
-        val years = (2026 downTo 2000).map { FilterOption(it.toString(), it.toString()) } + FilterOption("1990s", "1990s")
+        val years = (2026 downTo 2000).map { FilterOption(it.toString(), it.toString()) }
+        // rating[] values: G | PG | PG-13 | R | R+ | Rx
         val ratings = listOf(
-            FilterOption("G", "g"), FilterOption("PG", "pg"), FilterOption("PG-13", "pg_13"),
-            FilterOption("R", "r"), FilterOption("R+", "r+"), FilterOption("Rx", "rx")
+            FilterOption("G", "G"), FilterOption("PG", "PG"), FilterOption("PG-13", "PG-13"),
+            FilterOption("R", "R"), FilterOption("R+", "R+"), FilterOption("Rx", "Rx")
         )
-        val countries = listOf(FilterOption("China", "2"), FilterOption("Japan", "11"))
+        // language[] values: sub | dub
         val languages = listOf(
-            FilterOption("Sub", "sub"), FilterOption("Softsub", "softsub"),
-            FilterOption("Dub", "dub"), FilterOption("Sub & Dub", "subdub")
+            FilterOption("Sub", "sub"),
+            FilterOption("Dub", "dub")
         )
     }
 }

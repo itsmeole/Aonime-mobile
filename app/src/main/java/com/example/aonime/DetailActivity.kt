@@ -51,10 +51,9 @@ class DetailActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         episodeAdapter = EpisodeAdapter { episode ->
             val intent = Intent(this, StreamActivity::class.java).apply {
-                putExtra("EXTRA_TOKEN", episode.token)
-                putExtra("EXTRA_TITLE", episode.title)
-                putExtra("EXTRA_EP_NUMBER", episode.number)
                 putExtra("EXTRA_ANIME_SLUG", currentSlug)
+                putExtra("EXTRA_EP_NUMBER", episode.number)
+                putExtra("EXTRA_ANIME_NAME", viewModel.uiState.value?.detail?.title)
             }
             startActivity(intent)
         }
@@ -76,32 +75,33 @@ class DetailActivity : AppCompatActivity() {
 
     private fun setupViewModel(slug: String) {
         viewModel = ViewModelProvider(this, DetailViewModel.Factory())[DetailViewModel::class.java]
-        
+
         viewModel.uiState.observe(this) { state ->
-            findViewById<ProgressBar>(R.id.loading_detail).visibility = if (state.isLoading) View.VISIBLE else View.GONE
-            
-            state.anime?.let { bindAnimeDetail(it) }
+            findViewById<ProgressBar>(R.id.loading_detail).visibility =
+                if (state.isLoading) View.VISIBLE else View.GONE
+
+            state.detail?.let { bindAnimeDetail(it) }
             episodeAdapter.submitList(state.displayedEpisodes)
-            
+
             setupRangeDropdown(state.episodeRanges)
-            
+
             state.errorMessage?.let {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
             }
         }
-        
+
         viewModel.loadAnimeDetail(slug)
     }
 
     private fun setupRangeDropdown(ranges: List<String>) {
         val container = findViewById<View>(R.id.filter_episode_range)
         val tvLabel = container.findViewById<TextView>(R.id.tv_label)
-        
+
         if (ranges.isEmpty()) {
             container.visibility = View.GONE
             return
         }
-        
+
         container.visibility = View.VISIBLE
         if (tvLabel.text == "Filter" || tvLabel.text == "All") {
             tvLabel.text = ranges.first()
@@ -119,20 +119,25 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun bindAnimeDetail(anime: AnimeApiItem) {
+    private fun bindAnimeDetail(detail: AnimeDetailData) {
         findViewById<CollapsingToolbarLayout>(R.id.toolbar_layout)
-        
-        val bannerUrl = if (!anime.quality.isNullOrBlank()) anime.quality else anime.poster
+
+        // Use the detail image as banner
+        val bannerUrl = detail.image
         findViewById<ImageView>(R.id.iv_detail_poster).load(bannerUrl) {
             crossfade(true)
             placeholder(R.drawable.bg_poster_placeholder)
             error(R.drawable.bg_poster_placeholder)
         }
-        
-        findViewById<TextView>(R.id.tv_detail_title).text = anime.title
-        findViewById<TextView>(R.id.tv_detail_type).text = anime.type
-        findViewById<TextView>(R.id.tv_detail_year).text = anime.release
-        findViewById<TextView>(R.id.tv_detail_genres).text = anime.genres
-        findViewById<TextView>(R.id.tv_detail_description).text = anime.description
+
+        findViewById<TextView>(R.id.tv_detail_title).text = detail.title
+        findViewById<TextView>(R.id.tv_detail_type).text = detail.type
+        // Show premiered year or aired date
+        val yearText = detail.premiered ?: detail.aired?.take(4)
+        findViewById<TextView>(R.id.tv_detail_year).text = yearText
+        // Genres as comma-separated string
+        val genresText = detail.genres?.joinToString(", ") ?: ""
+        findViewById<TextView>(R.id.tv_detail_genres).text = genresText
+        findViewById<TextView>(R.id.tv_detail_description).text = detail.synopsis
     }
 }

@@ -5,14 +5,13 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.google.gson.JsonElement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class DetailUiState(
     val isLoading: Boolean = false,
-    val anime: AnimeApiItem? = null,
+    val detail: AnimeDetailData? = null,
     val displayedEpisodes: List<EpisodeApiItem> = emptyList(),
     val episodeRanges: List<String> = emptyList(),
     val errorMessage: String? = null
@@ -35,30 +34,28 @@ class DetailViewModel(
 
         viewModelScope.launch {
             try {
-                val detail = withContext(Dispatchers.IO) { repository.getAnimeDetail(slug) }
-                
-                val animeItem = AnimeApiItem(
-                    id = slug,
-                    title = detail.title,
-                    poster = detail.poster,
-                    description = detail.description,
-                    type = detail.type,
-                    rating = detail.rating,
-                    quality = detail.banner,
-                    genres = parseGenres(detail.detailInfo?.genres),
-                    release = detail.detailInfo?.dateAired
-                )
+                val detailResp = withContext(Dispatchers.IO) { repository.getAnimeDetail(slug) }
+                val detail = detailResp.data ?: run {
+                    _uiState.value = DetailUiState(
+                        isLoading = false,
+                        errorMessage = "Anime tidak ditemukan"
+                    )
+                    return@launch
+                }
 
-                allEpisodes = detail.episodes ?: emptyList()
+                // Episodes are embedded in the detail response under data.episodes.episodes
+                val embeddedEpisodes = detail.episodesData?.episodes ?: emptyList()
+
+                allEpisodes = embeddedEpisodes
                 val ranges = calculateRanges(allEpisodes.size)
-                
+
                 val initialEpisodes = if (allEpisodes.isNotEmpty()) {
                     allEpisodes.subList(0, minOf(pageSize, allEpisodes.size))
                 } else emptyList()
 
                 _uiState.value = DetailUiState(
                     isLoading = false,
-                    anime = animeItem,
+                    detail = detail,
                     displayedEpisodes = initialEpisodes,
                     episodeRanges = ranges,
                     errorMessage = null
@@ -70,25 +67,6 @@ class DetailViewModel(
                     errorMessage = "Gagal memuat detail anime: ${exception.localizedMessage}"
                 )
             }
-        }
-    }
-
-    private fun parseGenres(json: JsonElement?): String {
-        if (json == null || json.isJsonNull) return ""
-        return try {
-            if (json.isJsonArray) {
-                val genres = mutableListOf<String>()
-                json.asJsonArray.forEach { 
-                    genres.add(it.asString.substringAfterLast("/").replaceFirstChar { c -> c.uppercase() })
-                }
-                genres.joinToString(", ")
-            } else if (json.isJsonPrimitive && json.asJsonPrimitive.isString) {
-                json.asString.substringAfterLast("/").replaceFirstChar { c -> c.uppercase() }
-            } else {
-                ""
-            }
-        } catch (e: Exception) {
-            ""
         }
     }
 
@@ -122,9 +100,8 @@ class DetailViewModel(
                 allEpisodes.subList(start, end)
             }
         } else {
-            allEpisodes.filter { 
-                it.number?.contains(currentSearchQuery, ignoreCase = true) == true ||
-                it.title?.contains(currentSearchQuery, ignoreCase = true) == true
+            allEpisodes.filter {
+                it.number?.contains(currentSearchQuery, ignoreCase = true) == true
             }.take(pageSize)
         }
         _uiState.value = _uiState.value?.copy(displayedEpisodes = filtered)

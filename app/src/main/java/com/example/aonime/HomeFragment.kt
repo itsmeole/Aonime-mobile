@@ -67,7 +67,7 @@ class HomeFragment : Fragment() {
 
     private fun setupFeaturedBanner(view: View) {
         view.findViewById<android.widget.Button>(R.id.btn_watch_now).setOnClickListener {
-            homeViewModel.uiState.value?.featured?.id?.let { slug ->
+            homeViewModel.uiState.value?.featured?.slug?.let { slug ->
                 navigateToDetail(slug)
             }
         }
@@ -106,13 +106,14 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun bindFeaturedBanner(view: View, item: AnimeApiItem) {
-        view.findViewById<android.widget.TextView>(R.id.tv_featured_title).text = item.title ?: "Untitled"
+    private fun bindFeaturedBanner(view: View, item: SpotlightItem) {
+        view.findViewById<android.widget.TextView>(R.id.tv_featured_title).text =
+            item.title ?: "Untitled"
         view.findViewById<android.widget.TextView>(R.id.tv_featured_desc).text =
-            item.description?.ifBlank { "Tonton anime unggulan langsung dari AnimeKai API." }
-                ?: "Tonton anime unggulan langsung dari AnimeKai API."
+            item.synopsis?.ifBlank { "Tonton anime unggulan di Aonime." }
+                ?: "Tonton anime unggulan di Aonime."
 
-        view.findViewById<android.widget.ImageView>(R.id.iv_featured_poster).load(item.poster) {
+        view.findViewById<android.widget.ImageView>(R.id.iv_featured_poster).load(item.image) {
             crossfade(true)
             placeholder(R.drawable.bg_featured_placeholder)
             error(R.drawable.bg_featured_placeholder)

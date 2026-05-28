@@ -5,16 +5,13 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import com.google.gson.JsonElement
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class HomeUiState(
     val isLoading: Boolean = false,
-    val featured: AnimeApiItem? = null,
+    val featured: SpotlightItem? = null,
     val trending: List<Anime> = emptyList(),
     val latest: List<Anime> = emptyList(),
     val errorMessage: String? = null
@@ -38,20 +35,31 @@ class HomeViewModel(
             val state = withContext(Dispatchers.IO) {
                 try {
                     val home = repository.getHome()
-                    val featuredItem = parseBannerSafely(home.banner)
+                    val homeData = home.data
+
+                    val featuredItem = homeData?.spotlight?.firstOrNull()
+                    // top anime by day as "trending", latestEpisodes as "latest"
+                    val trending = homeData?.topDay
+                        ?.take(10)
+                        ?.map { it.toAnime() }
+                        ?: emptyList()
+                    val latest = homeData?.latestEpisodes
+                        ?.take(12)
+                        ?.map { it.toAnime() }
+                        ?: emptyList()
 
                     HomeUiState(
                         isLoading = false,
                         featured = featuredItem,
-                        trending = home.topTrending?.now?.take(10)?.map { it.toAnime() } ?: emptyList(),
-                        latest = home.latestUpdates?.take(8)?.map { it.toAnime() } ?: emptyList(),
+                        trending = trending,
+                        latest = latest,
                         errorMessage = null
                     )
                 } catch (exception: Exception) {
                     exception.printStackTrace()
                     HomeUiState(
                         isLoading = false,
-                        featured = DummyData.trendingAnime.firstOrNull()?.toApiItem(),
+                        featured = null,
                         trending = DummyData.trendingAnime,
                         latest = DummyData.latestEpisodes,
                         errorMessage = "API Error: ${exception.localizedMessage}"
@@ -59,26 +67,6 @@ class HomeViewModel(
                 }
             }
             _uiState.value = state
-        }
-    }
-
-    private fun parseBannerSafely(json: JsonElement?): AnimeApiItem? {
-        if (json == null || json.isJsonNull) return null
-        val gson = Gson()
-        return try {
-            when {
-                json.isJsonArray -> {
-                    val type = object : TypeToken<List<AnimeApiItem>>() {}.type
-                    val list = gson.fromJson<List<AnimeApiItem>>(json, type)
-                    list.firstOrNull()
-                }
-                json.isJsonObject -> {
-                    gson.fromJson(json, AnimeApiItem::class.java)
-                }
-                else -> null // Jika String atau tipe lain, abaikan
-            }
-        } catch (e: Exception) {
-            null
         }
     }
 

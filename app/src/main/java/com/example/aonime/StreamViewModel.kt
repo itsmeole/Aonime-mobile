@@ -11,10 +11,20 @@ import kotlinx.coroutines.withContext
 
 data class StreamUiState(
     val isLoading: Boolean = false,
-    val watchingText: String? = null,
-    val servers: ServerCategories? = null,
-    val embedUrl: String? = null,
+    val animeName: String? = null,
+    val currentEpNumber: String? = null,
+    /** All available sources (sub + dub) for the current episode */
+    val sources: List<SourceItem> = emptyList(),
+    /** The active m3u8 URL already routed through CF Worker proxy */
+    val activeM3u8Url: String? = null,
+    /** Sub sources for the server dropdown */
+    val subSources: List<SourceItem> = emptyList(),
+    /** Dub sources for the server dropdown */
+    val dubSources: List<SourceItem> = emptyList(),
+    /** All episodes of this anime for the episode list */
     val episodes: List<EpisodeApiItem> = emptyList(),
+    /** Subtitle tracks for the active source */
+    val activeTracks: List<SubtitleTrack> = emptyList(),
     val episodeRanges: List<String> = emptyList(),
     val errorMessage: String? = null
 )
@@ -26,23 +36,43 @@ class StreamViewModel(
     private val _uiState = MutableLiveData(StreamUiState())
     val uiState: LiveData<StreamUiState> = _uiState
 
+    private var animeSlug: String = ""
     private var allEpisodes: List<EpisodeApiItem> = emptyList()
     private var currentRangeIndex: Int = 0
     private val pageSize = 50
 
-    fun loadStreamData(token: String, animeSlug: String?) {
-        // Preserve current episodes list when loading new server data
+    /**
+     * Load watch data for a specific episode (slug + episode number).
+     * Also loads episode list on first call.
+     */
+    fun loadEpisode(slug: String, epNumber: String, animeName: String?) {
+        animeSlug = slug
         val currentEpisodes = _uiState.value?.episodes ?: emptyList()
-        _uiState.value = _uiState.value?.copy(isLoading = true, embedUrl = null)
-        
+        _uiState.value = _uiState.value?.copy(
+            isLoading = true,
+            animeName = animeName,
+            currentEpNumber = epNumber,
+            activeM3u8Url = null,
+            errorMessage = null
+        )
+
         viewModelScope.launch {
             try {
-                // Load Servers
-                val serverResponse = withContext(Dispatchers.IO) { repository.getServers(token) }
-                
-                // Load Episodes only if needed (initial load)
-                val episodes = if (animeSlug != null && allEpisodes.isEmpty()) {
-                    val loaded = withContext(Dispatchers.IO) { repository.getEpisodes(animeSlug).episodes ?: emptyList() }
+                val watchResp = withContext(Dispatchers.IO) {
+                    repository.getWatchData(slug = slug, ep = epNumber)
+                }
+
+                val watchData = watchResp.data
+                val sources = watchData?.sources ?: emptyList()
+                val subSources = sources.filter { it.type == "sub" }
+                val dubSources = sources.filter { it.type == "dub" }
+
+                // Load episodes on initial open (when list is empty)
+                val episodes = if (allEpisodes.isEmpty()) {
+                    val detailResp = withContext(Dispatchers.IO) {
+                        repository.getAnimeDetail(slug)
+                    }
+                    val loaded = detailResp.data?.episodesData?.episodes ?: emptyList()
                     allEpisodes = loaded
                     loaded
                 } else {
@@ -50,31 +80,49 @@ class StreamViewModel(
                 }
 
                 val ranges = calculateRanges(allEpisodes.size)
-                val displayedEpisodes = if (allEpisodes.isNotEmpty()) {
-                    allEpisodes.subList(0, minOf(pageSize, allEpisodes.size))
-                } else emptyList()
+                val displayedEpisodes = currentDisplayedEpisodes()
+
+                // Default to first sub source, proxied through CF Worker
+                val defaultSource = subSources.firstOrNull() ?: dubSources.firstOrNull()
+                val proxiedUrl = buildProxiedM3u8(
+                    m3u8Url = defaultSource?.m3u8,
+                    referer = defaultSource?.referer,
+                    apiProxyUrl = defaultSource?.proxyUrl
+                )
 
                 _uiState.value = _uiState.value?.copy(
                     isLoading = false,
-                    watchingText = serverResponse.watching,
-                    servers = serverResponse.servers,
+                    sources = sources,
+                    subSources = subSources,
+                    dubSources = dubSources,
+                    activeM3u8Url = proxiedUrl,
+                    activeTracks = defaultSource?.tracks ?: emptyList(),
                     episodes = displayedEpisodes,
                     episodeRanges = ranges
                 )
-                
-                // Load first server by default
-                val firstServer = serverResponse.servers?.sub?.firstOrNull() 
-                    ?: serverResponse.servers?.softsub?.firstOrNull()
-                    ?: serverResponse.servers?.dub?.firstOrNull()
-                
-                firstServer?.linkId?.let { loadSource(it) }
             } catch (e: Exception) {
+                e.printStackTrace()
                 _uiState.value = _uiState.value?.copy(
                     isLoading = false,
-                    errorMessage = "Gagal memuat data: ${e.localizedMessage}"
+                    errorMessage = "Gagal memuat video: ${e.localizedMessage}"
                 )
             }
         }
+    }
+
+    /**
+     * Switch the active stream to a different source.
+     */
+    fun selectSource(source: SourceItem) {
+        val proxiedUrl = buildProxiedM3u8(
+            m3u8Url = source.m3u8,
+            referer = source.referer,
+            apiProxyUrl = source.proxyUrl
+        )
+        _uiState.value = _uiState.value?.copy(
+            activeM3u8Url = proxiedUrl,
+            activeTracks = source.tracks ?: emptyList()
+        )
     }
 
     private fun calculateRanges(total: Int): List<String> {
@@ -89,29 +137,15 @@ class StreamViewModel(
 
     fun setRange(index: Int) {
         currentRangeIndex = index
-        updateDisplayedEpisodes()
+        _uiState.value = _uiState.value?.copy(episodes = currentDisplayedEpisodes())
     }
 
-    private fun updateDisplayedEpisodes() {
+    private fun currentDisplayedEpisodes(): List<EpisodeApiItem> {
         val start = currentRangeIndex * pageSize
-        val displayedEpisodes = if (start >= allEpisodes.size) emptyList()
+        return if (start >= allEpisodes.size) emptyList()
         else {
             val end = minOf(start + pageSize, allEpisodes.size)
             allEpisodes.subList(start, end)
-        }
-        _uiState.value = _uiState.value?.copy(episodes = displayedEpisodes)
-    }
-
-    fun loadSource(linkId: String) {
-        viewModelScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) { repository.getSource(linkId) }
-                _uiState.value = _uiState.value?.copy(embedUrl = response.embedUrl)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value?.copy(
-                    errorMessage = "Gagal memuat video: ${e.localizedMessage}"
-                )
-            }
         }
     }
 

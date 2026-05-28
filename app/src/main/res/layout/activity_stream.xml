@@ -34,10 +34,22 @@
             android:layout_height="220dp"
             android:background="@android:color/black">
 
-            <WebView
-                android:id="@+id/webview_player"
+            <androidx.media3.ui.PlayerView
+                android:id="@+id/player_view"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent"
+                app:use_controller="true" />
+
+            <ImageButton
+                android:id="@+id/btn_player_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="?selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_preferences"
+                android:tint="@android:color/white" />
 
             <ProgressBar
                 android:id="@+id/loading_player"
@@ -48,6 +60,7 @@
         </FrameLayout>
 
         <androidx.core.widget.NestedScrollView
+            android:id="@+id/scroll_content"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
