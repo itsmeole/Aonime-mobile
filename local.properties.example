@@ -1,0 +1,13 @@
+## This file must *NOT* be checked into Version Control Systems,
+# as it contains information specific to your local configuration.
+#
+# Location of the SDK. This is only used by Gradle.
+# For customization when using a Version Control System, please read the
+# header note.
+sdk.dir=C\:\\Users\\YourUsername\\AppData\\Local\\Android\\Sdk
+
+# API Base URL for the app
+BASE_URL=https://your-api-url-here/api
+
+# Cloudflare Worker Proxy URL for HLS Streaming
+CF_WORKER_PROXY=https://your-cloudflare-worker-url.workers.dev

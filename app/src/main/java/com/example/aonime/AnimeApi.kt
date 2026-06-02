@@ -9,13 +9,13 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
-private const val BASE_URL = "https://anikoto-scrap.vercel.app/api/"
+private val BASE_URL = BuildConfig.BASE_URL
 
 /**
  * Cloudflare Worker proxy URL for HLS streaming.
  * Format: https://<worker-url>/?url=<encoded-m3u8>&referer=<encoded-referer>
  */
-const val CF_WORKER_PROXY = "https://aonime-proxy.rezhashahidzindarb.workers.dev"
+val CF_WORKER_PROXY = BuildConfig.CF_WORKER_PROXY
 
 interface AnimeApiService {
 
