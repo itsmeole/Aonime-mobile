@@ -191,8 +191,12 @@ class StreamActivity : AppCompatActivity() {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == androidx.media3.common.Player.STATE_BUFFERING) {
                     findViewById<View>(R.id.loading_player).visibility = View.VISIBLE
+                    findViewById<ImageButton>(R.id.btn_player_settings).visibility = View.GONE
                 } else if (playbackState == androidx.media3.common.Player.STATE_READY) {
                     findViewById<View>(R.id.loading_player).visibility = View.GONE
+                    if (playerView.isControllerFullyVisible) {
+                        findViewById<ImageButton>(R.id.btn_player_settings).visibility = View.VISIBLE
+                    }
                 }
             }
 
@@ -206,6 +210,15 @@ class StreamActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_player_settings).setOnClickListener {
             showSettingsBottomSheet()
         }
+
+        playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+            val isReady = player?.playbackState == androidx.media3.common.Player.STATE_READY
+            if (visibility == View.VISIBLE && isReady) {
+                findViewById<ImageButton>(R.id.btn_player_settings).visibility = View.VISIBLE
+            } else {
+                findViewById<ImageButton>(R.id.btn_player_settings).visibility = View.GONE
+            }
+        })
         applyCaptionStyle()
     }
 
@@ -230,7 +243,8 @@ class StreamActivity : AppCompatActivity() {
 
         if (selectedSubIdx >= 0 && selectedSubIdx < currentTracks.size) {
             val track = currentTracks[selectedSubIdx]
-            val subUrl = track.proxyUrl?.let { if (it.startsWith("http")) it else "https://anikoto-scrap.vercel.app$it" } ?: track.file ?: ""
+            val hostUrl = java.net.URL(BuildConfig.BASE_URL).let { "${it.protocol}://${it.host}" }
+            val subUrl = track.proxyUrl?.let { if (it.startsWith("http")) it else "$hostUrl$it" } ?: track.file ?: ""
 
             lifecycleScope.launch {
                 // Process subtitle delay

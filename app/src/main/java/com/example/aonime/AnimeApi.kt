@@ -9,7 +9,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
-private val BASE_URL = BuildConfig.BASE_URL
+private val BASE_URL = if (BuildConfig.BASE_URL.endsWith("/")) BuildConfig.BASE_URL else "${BuildConfig.BASE_URL}/"
 
 /**
  * Cloudflare Worker proxy URL for HLS streaming.

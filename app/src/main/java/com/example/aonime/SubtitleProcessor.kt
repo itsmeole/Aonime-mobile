@@ -15,7 +15,8 @@ object SubtitleProcessor {
         delaySeconds: Float
     ): String? = withContext(Dispatchers.IO) {
         try {
-            val actualUrl = if (vttUrl.startsWith("http")) vttUrl else "https://anikoto-scrap.vercel.app$vttUrl"
+            val hostUrl = java.net.URL(BuildConfig.BASE_URL).let { "${it.protocol}://${it.host}" }
+            val actualUrl = if (vttUrl.startsWith("http")) vttUrl else "$hostUrl$vttUrl"
             val connection = URL(actualUrl).openConnection()
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
             connection.connectTimeout = 5000
